@@ -1,0 +1,45 @@
+import { describe, expect, test } from 'vitest'
+import Player, { defaultPlayerData } from '../src/classes/Player.js'
+
+const getPlayerData = (player: Player) =>
+  (player as unknown as { data: typeof defaultPlayerData }).data
+
+describe('Player', () => {
+  test('initializes a player with the provided name and ID', () => {
+    const player = new Player('Steve', '123456789')
+
+    expect(player).toBeInstanceOf(Player)
+    expect(player.name).toBe('Steve')
+    expect(player.id).toBe('123456789')
+  })
+
+  test('initializes a player with default data when no data is provided', () => {
+    const player = new Player('Steve', '123456789')
+
+    expect(getPlayerData(player)).toEqual({
+      balance: 0,
+      experience: 0,
+      level: 1,
+    })
+
+    expect(getPlayerData(player)).toEqual(defaultPlayerData)
+  })
+
+  test('uses supplied player data when it is provided', () => {
+    const savedData = {
+      balance: 500,
+      experience: 250,
+      level: 4,
+    }
+
+    const player = new Player('Steve', '123456789', savedData)
+
+    expect(player.name).toBe('Steve')
+    expect(player.id).toBe('123456789')
+    expect(getPlayerData(player)).toEqual({
+      balance: 500,
+      experience: 250,
+      level: 4,
+    })
+  })
+})
