@@ -54,6 +54,16 @@ export default class Player {
         };
     }
 
+    public assignRandomExperienceAndBalance(): Player {
+        this.addExperience(
+            Math.floor((Math.random() * 26 + 15) * this.experienceMultiplier),
+        );
+        this.addBalance(
+            Math.floor((Math.random() * 101 + 50) * this.balanceMultiplier),
+        );
+        return this;
+    }
+
     public get level(): number {
         return this.data.level;
     }
@@ -77,18 +87,30 @@ export default class Player {
             50 * Math.pow(1.15, level - 1),
         );
     }
+
+    public get experienceMultiplier(): number {
+        return this.data.experienceMultiplier;
+    }
+
+    public get balanceMultiplier(): number {
+        return this.data.balanceMultiplier;
+    }
 }
 
 export interface Data {
     balance: number;
     experience: number;
     level: number;
+    experienceMultiplier: number;
+    balanceMultiplier: number;
 }
 
 export const defaultPlayerData: Data = {
     balance: 0,
     experience: 0,
-    level: 1
+    level: 1,
+    experienceMultiplier: 1.00,
+    balanceMultiplier: 1.00,
 };
 
 export interface ExperienceResult {

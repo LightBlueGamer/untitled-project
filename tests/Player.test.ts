@@ -20,8 +20,10 @@ describe('Player', () => {
       balance: 0,
       experience: 0,
       level: 1,
+      experienceMultiplier: 1.0,
+      balanceMultiplier: 1.0,
     })
-
+    
     expect(getPlayerData(player)).toEqual(defaultPlayerData)
   })
 
@@ -30,6 +32,8 @@ describe('Player', () => {
       balance: 500,
       experience: 250,
       level: 4,
+      experienceMultiplier: 1.5,
+      balanceMultiplier: 1.2,
     }
 
     const player = new Player('Steve', '123456789', savedData)
@@ -40,6 +44,20 @@ describe('Player', () => {
       balance: 500,
       experience: 250,
       level: 4,
+      experienceMultiplier: 1.5,
+      balanceMultiplier: 1.2,
     })
   })
+
+  test('Tests for experience and balance randomized assignment', () => {
+    const player = new Player('Steve', '123456789')
+
+    player.assignRandomExperienceAndBalance()
+
+    expect(player.experience).toBeGreaterThanOrEqual(15)
+    expect(player.experience).toBeLessThanOrEqual(40)
+    expect(player.balance).toBeGreaterThanOrEqual(50)
+    expect(player.balance).toBeLessThanOrEqual(150)
+  })
 })
+
