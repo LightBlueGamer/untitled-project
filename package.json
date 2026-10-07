@@ -8,6 +8,7 @@
     "main": "dist/server.js",
     "scripts": {
         "build": "tsc",
+        "start:api": "npm run build && node dist/server.js",
         "start:server": "node dist/server.js",
         "start:bot": "node dist/index.js",
         "start": "npm run build && concurrently \"npm run start:server\" \"npm run start:bot\"",

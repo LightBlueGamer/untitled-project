@@ -102,7 +102,34 @@ export default class Player {
         return this.data.balanceMultiplier;
     }
 
-    public static async get(id: string, discordClient: Client): Promise<Player> {
+    public toJSON(): PlayerResponse {
+        return {
+            id: this.id,
+            name: this.name,
+            ...this.data,
+        };
+    }
+
+    public static async findAll(): Promise<Player[]> {
+        const pool = getPool();
+        const dbClient = await pool.connect();
+
+        try {
+            const result = await dbClient.query<{
+                id: string;
+                data: StoredPlayerData;
+            }>("SELECT id, data FROM players ORDER BY id");
+
+            return result.rows.map(({ id, data }) => {
+                const { name, ...playerData } = data;
+                return new Player(name ?? id, id, playerData);
+            });
+        } finally {
+            dbClient.release();
+        }
+    }
+
+    public static async findById(id: string): Promise<Player | null> {
         const cache = getCache();
         const cacheKey = `${Player.CACHE_PREFIX}${id}`;
         const cached = await cache.get(cacheKey);
@@ -114,29 +141,45 @@ export default class Player {
 
         const pool = getPool();
         const dbClient = await pool.connect();
-        let playerData: StoredPlayerData | undefined;
 
         try {
             const result = await dbClient.query<{ data: StoredPlayerData }>(
                 "SELECT data FROM players WHERE id = $1",
                 [id],
             );
-            playerData = result.rows[0]?.data;
+            const storedData = result.rows[0]?.data;
+
+            if (!storedData) return null;
+
+            const { name, ...data } = storedData;
+            const player = new Player(name ?? id, id, data);
+            await Player.cachePlayer(cacheKey, player);
+            return player;
         } finally {
             dbClient.release();
         }
+    }
 
-        const name =
-            playerData?.name ?? (await discordClient.users.fetch(id)).username;
-        if (playerData) {
-            const { name: storedName, ...data } = playerData;
-            const player = new Player(storedName ?? name, id, data);
-            await Player.cachePlayer(cacheKey, player);
-            return player;
+    public static async get(id: string, discordClient: Client): Promise<Player> {
+        const pool = getPool();
+        const existingPlayer = await Player.findById(id);
+        if (existingPlayer) {
+            if (existingPlayer.name === id) {
+                existingPlayer.name = (
+                    await discordClient.users.fetch(id)
+                ).username;
+                await Player.cachePlayer(
+                    `${Player.CACHE_PREFIX}${id}`,
+                    existingPlayer,
+                );
+            }
+            return existingPlayer;
         }
 
+        const name = (await discordClient.users.fetch(id)).username;
         const newPlayer = new Player(name, id);
         const insertClient = await pool.connect();
+        const cacheKey = `${Player.CACHE_PREFIX}${id}`;
 
         try {
             const insertResult = await insertClient.query<{
@@ -254,6 +297,11 @@ export interface Data {
     prestige: number;
     experienceMultiplier: number;
     balanceMultiplier: number;
+}
+
+export interface PlayerResponse extends Data {
+    id: string;
+    name: string;
 }
 
 export const defaultPlayerData: Data = {

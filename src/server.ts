@@ -1,5 +1,6 @@
 import express from 'express'
 import apiRouter from './api/router.js'
+import { initDatabase, initRedis } from './database.js'
 
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -21,6 +22,16 @@ app.get('/', (_request, response) => {
     response.sendFile(join(projectRoot, 'public', 'index.html'))
 })
 
-app.listen(port, () => {
-    console.log(`Server listening on http://localhost:${port}`)
+async function startServer(): Promise<void> {
+    await initDatabase()
+    await initRedis()
+
+    app.listen(port, () => {
+        console.log(`Server listening on http://localhost:${port}`)
+    })
+}
+
+void startServer().catch((error: unknown) => {
+    console.error('Failed to start server:', error)
+    process.exitCode = 1
 })

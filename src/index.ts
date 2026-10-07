@@ -14,7 +14,6 @@ import {
 } from "./classes/Command.js";
 
 import {
-    initDatabase,
     testConnections,
     initRedis,
     disconnect,
@@ -94,7 +93,6 @@ async function loadEvents(): Promise<void> {
 
 async function start(): Promise<void> {
     try {
-        await initDatabase();
         await initRedis();
         await testConnections();
 

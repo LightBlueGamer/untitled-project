@@ -44,10 +44,6 @@ pool.on("error", (error) => {
     console.error("PostgreSQL pool error:", error);
 });
 
-pool.on("connect", () => {
-    console.log("✅ PostgreSQL connected");
-});
-
 redisClient.on("error", (error) => {
     console.error("Redis error:", error);
 });
