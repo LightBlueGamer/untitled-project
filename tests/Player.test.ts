@@ -20,6 +20,7 @@ describe('Player', () => {
       balance: 0,
       experience: 0,
       level: 1,
+      prestige: 0,
       experienceMultiplier: 1.0,
       balanceMultiplier: 1.0,
     })
@@ -32,6 +33,7 @@ describe('Player', () => {
       balance: 500,
       experience: 250,
       level: 4,
+      prestige: 0,
       experienceMultiplier: 1.5,
       balanceMultiplier: 1.2,
     }
@@ -44,6 +46,7 @@ describe('Player', () => {
       balance: 500,
       experience: 250,
       level: 4,
+      prestige: 0,
       experienceMultiplier: 1.5,
       balanceMultiplier: 1.2,
     })

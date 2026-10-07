@@ -1,22 +1,36 @@
 {
-  "name": "discord-bot",
-  "version": "1.0.0",
-  "description": "",
-  "license": "ISC",
-  "author": "",
-  "type": "commonjs",
-  "main": "index.js",
-  "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.39.5",
-    "eslint": "^9.39.5",
-    "eslint-config-prettier": "^10.1.8",
-    "prettier": "^3.9.9",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.1",
-    "vitest": "^5.0.3"
-  }
+    "name": "discord-bot",
+    "version": "1.0.0",
+    "description": "",
+    "license": "ISC",
+    "author": "",
+    "type": "module",
+    "main": "dist/server.js",
+    "scripts": {
+        "build": "tsc",
+        "start:server": "node dist/server.js",
+        "start:bot": "node dist/index.js",
+        "start": "npm run build && concurrently \"npm run start:server\" \"npm run start:bot\"",
+        "test:watch": "vitest"
+    },
+    "dependencies": {
+        "discord.js": "^14.27.0",
+        "dotenv": "^18.0.5",
+        "express": "^5.1.0",
+        "pg": "^8.23.1",
+        "redis": "^6.3.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.39.5",
+        "@types/express": "^5.0.3",
+        "@types/node": "^22.15.30",
+        "@types/pg": "^8.23.1",
+        "concurrently": "^9.2.1",
+        "eslint": "^9.39.5",
+        "eslint-config-prettier": "^10.1.8",
+        "prettier": "^3.9.9",
+        "typescript": "^6.0.3",
+        "typescript-eslint": "^8.71.1",
+        "vitest": "^5.0.3"
+    }
 }
