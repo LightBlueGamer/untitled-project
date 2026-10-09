@@ -40,6 +40,11 @@ export default class Player {
         return this.data.experience;
     }
 
+    private set experience(value: number) {
+        this.assertNonNegativeAmount(value);
+        this.data.experience = value;
+    }
+
     public addExperience(amount: number): ExperienceResult {
         this.assertPositiveAmount(amount);
         const previousLevel = this.data.level;
@@ -74,8 +79,17 @@ export default class Player {
         return this.data.level;
     }
 
+    private set level(value: number) {
+        this.assertNonNegativeAmount(value);
+        this.data.level = value;
+    }   
+
     private assertPositiveAmount(amount: number) {
         if(amount <= 0) throw new Error('Amount must be a positive number');
+    }
+
+    private assertNonNegativeAmount(amount: number) {
+        if(amount < 0) throw new Error('Amount must be a non-negative number');
     }
 
     private assertSufficientBalance(amount: number) {
@@ -112,6 +126,22 @@ export default class Player {
             currentRequirement,
             nextRequirement: currentRequirement * 2,
         };
+    }
+
+    public get prestigeLevel(): number {
+        return this.data.prestige;
+    }
+
+    private set prestigeLevel(value: number) {
+        this.assertNonNegativeAmount(value);
+        this.data.prestige = value;
+    }
+
+    public prestige(): Player {
+        this.experience = 0;
+        this.level = 0;
+        this.data.prestige++;
+        return this;
     }
 
     public toJSON(): PlayerResponse {

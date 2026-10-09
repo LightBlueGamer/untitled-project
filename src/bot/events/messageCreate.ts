@@ -38,8 +38,7 @@ export default {
                 if (canPrestige && reachedPrestigeRequirement) {
                     await (message.channel as GuildTextBasedChannel).send({
                         content:
-                            `${member}, congratulations! You've leveled up to level ${currentLevel}! 🎉\n` +
-                            `You can prestige to reset your level and XP, gain a prestige level, and receive one of three random buffs!`,
+                            `${member}, congratulations! You've leveled up to level ${currentLevel}! 🎉`,
                     });
                 } else {
                     const levelUpMessage = await (

@@ -28,4 +28,17 @@ export default defineConfig(
       ],
     },
   },
+  {
+    files: ['public/scripts/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        fetch: 'readonly',
+        location: 'readonly',
+        localStorage: 'readonly',
+        console: 'readonly',
+        URLSearchParams: 'readonly',
+      },
+    },
+  },
 )
