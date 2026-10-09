@@ -82,7 +82,7 @@ export default class Player {
         if (amount > this.data.balance) throw new Error('Insufficient balance');
     }
 
-    private xpForNextLevel(level: number): number {
+    public xpForNextLevel(level: number): number {
         if (level < 1) {
             throw new Error('Level must be at least 1');
         }
@@ -100,6 +100,18 @@ export default class Player {
 
     public get balanceMultiplier(): number {
         return this.data.balanceMultiplier;
+    }
+
+    public get prestigeInfo(): PrestigeInfo {
+        const prestigeLevel = this.data.prestige;
+        const currentRequirement = 10 * 2 ** prestigeLevel;
+
+        return {
+            prestigeLevel,
+            canPrestige: this.level >= currentRequirement,
+            currentRequirement,
+            nextRequirement: currentRequirement * 2,
+        };
     }
 
     public toJSON(): PlayerResponse {
@@ -319,4 +331,17 @@ export interface ExperienceResult {
     currentLevel: number;
     levelsGained: number;
     didLevelUp: boolean;
+}
+
+export interface PrestigeInfo {
+    prestigeLevel: number;
+    canPrestige: boolean;
+    currentRequirement: number;
+    nextRequirement: number;
+}
+
+export interface PrestigeBuff {
+    name: string;
+    description: string;
+    multiplier: number;
 }

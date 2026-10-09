@@ -1,8 +1,12 @@
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import Player, { defaultPlayerData } from '../src/classes/Player.js'
 
 const getPlayerData = (player: Player) =>
   (player as unknown as { data: typeof defaultPlayerData }).data
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('Player', () => {
   test('initializes a player with the provided name and ID', () => {
@@ -63,4 +67,3 @@ describe('Player', () => {
     expect(player.balance).toBeLessThanOrEqual(150)
   })
 })
-

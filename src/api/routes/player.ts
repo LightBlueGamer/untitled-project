@@ -29,4 +29,20 @@ router.get('/:id', async (request, response) => {
     }
 })
 
+router.get('/:id/requiredXP', async (request, response) => {
+    try {
+        const player = await Player.findById(request.params.id)
+
+        if (!player) {
+            response.status(404).json({ error: 'Player not found' })
+            return
+        }
+
+        response.json({ requiredXP: player.xpForNextLevel(player.level) })
+    } catch (error) {
+        console.error('Failed to fetch required XP:', error)
+        response.status(500).json({ error: 'Failed to fetch required XP' })
+    }
+})
+
 export default router
