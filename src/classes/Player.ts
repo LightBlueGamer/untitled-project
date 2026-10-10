@@ -1,5 +1,6 @@
 import type { Client } from "discord.js";
 import { getCache, getPool } from "../database.js";
+import { PrestigeBuff } from "../resources/prestigeBuffs.js";
 
 export default class Player {
     public name: string;
@@ -112,8 +113,22 @@ export default class Player {
         return this.data.experienceMultiplier;
     }
 
+    public set experienceMultiplier(value: number) {
+        if (value < 1.0) {
+            throw new Error('Experience multiplier must be at least 1.0');
+        }
+        this.data.experienceMultiplier = value;
+    }
+
     public get balanceMultiplier(): number {
         return this.data.balanceMultiplier;
+    }
+
+    public set balanceMultiplier(value: number) {
+        if (value < 1.0) {
+            throw new Error('Balance multiplier must be at least 1.0');
+        }
+        this.data.balanceMultiplier = value;
     }
 
     public get prestigeInfo(): PrestigeInfo {
@@ -139,8 +154,26 @@ export default class Player {
 
     public prestige(): Player {
         this.experience = 0;
-        this.level = 0;
+        this.level = 1;
         this.data.prestige++;
+        return this;
+    }
+
+    public addTemporaryPrestigeBuffData(buffs: PrestigeBuff[] | []) {
+        this.data.temp.prestigeBuffs = buffs;
+        return this;
+    }
+
+    public get hasExistingBuffChoices() {
+        return (this.data.temp?.prestigeBuffs?.length ?? 0) > 1;
+    }
+
+    public get temporaryPrestigeBuffData() {
+        return this.data.temp.prestigeBuffs;
+    }
+
+    public clearTemporaryPrestigeBuffData() {
+        this.data.temp.prestigeBuffs = [];
         return this;
     }
 
@@ -205,6 +238,7 @@ export default class Player {
     public static async get(id: string, discordClient: Client): Promise<Player> {
         const pool = getPool();
         const existingPlayer = await Player.findById(id);
+
         if (existingPlayer) {
             if (existingPlayer.name === id) {
                 existingPlayer.name = (
@@ -339,7 +373,12 @@ export interface Data {
     prestige: number;
     experienceMultiplier: number;
     balanceMultiplier: number;
+    temp: TemporaryData;
 }
+
+export interface TemporaryData {
+    prestigeBuffs?: PrestigeBuff[]
+};
 
 export interface PlayerResponse extends Data {
     id: string;
@@ -353,6 +392,7 @@ export const defaultPlayerData: Data = {
     prestige: 0,
     experienceMultiplier: 1.00,
     balanceMultiplier: 1.00,
+    temp: {}
 };
 
 export interface ExperienceResult {
@@ -368,10 +408,4 @@ export interface PrestigeInfo {
     canPrestige: boolean;
     currentRequirement: number;
     nextRequirement: number;
-}
-
-export interface PrestigeBuff {
-    name: string;
-    description: string;
-    multiplier: number;
 }

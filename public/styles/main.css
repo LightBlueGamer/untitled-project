@@ -37,7 +37,64 @@ body:before {
 .wrap {
     width: min(1120px, calc(100% - 32px));
     margin: auto;
-    padding: 50px 0 70px;
+    padding: 10px 0 12px;
+}
+
+.site-header,
+.logged-in-nav,
+.account-nav {
+    display: flex;
+    align-items: center;
+}
+
+.site-header {
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 10px;
+}
+
+.site-brand {
+    color: var(--gold2);
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.account-nav,
+.logged-in-nav {
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.account-name {
+    color: var(--muted);
+    font:
+        14px Arial,
+        sans-serif;
+}
+
+.nav-link {
+    padding: 8px 4px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    font:
+        bold 14px Arial,
+        sans-serif;
+    cursor: pointer;
+}
+
+.nav-link:hover,
+.nav-link[aria-current="page"] {
+    color: var(--gold2);
+}
+
+.nav-link[aria-current="page"] {
+    border-bottom-color: var(--gold);
+}
+
+.logged-in-nav form {
+    margin: 0;
 }
 
 .eyebrow {
@@ -54,13 +111,13 @@ body:before {
     justify-content: space-between;
     gap: 20px;
     align-items: end;
-    margin-bottom: 30px;
+    margin-bottom: 10px;
 }
 
 .hero h1 {
-    font-size: clamp(38px, 6vw, 72px);
+    font-size: clamp(30px, 3vw, 44px);
     line-height: 0.95;
-    margin: 10px 0 12px;
+    margin: 4px 0 5px;
     color: var(--gold2);
     text-shadow: 0 3px 22px #000;
 }
@@ -72,7 +129,7 @@ body:before {
 }
 
 .crest {
-    font-size: 72px;
+    font-size: 50px;
     color: var(--gold);
     filter: drop-shadow(0 4px 12px #000);
 }
@@ -87,9 +144,9 @@ body:before {
 
 .toolbar {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: center;
-    padding: 18px;
+    padding: 6px 12px;
     border-bottom: 1px solid var(--line);
     flex-wrap: wrap;
 }
@@ -100,9 +157,9 @@ body:before {
     background: #100d17;
     border: 1px solid var(--line);
     border-radius: 10px;
-    padding: 12px 14px;
+    padding: 6px 10px;
     color: var(--text);
-    font: 16px Georgia;
+    font: 14px Georgia;
 }
 
 .status {
@@ -121,7 +178,7 @@ body:before {
     align-items: center;
     justify-content: center;
     gap: 16px;
-    padding: 16px;
+    padding: 6px 10px;
     border-top: 1px solid var(--line);
 }
 
@@ -144,12 +201,12 @@ body:before {
     border: 1px solid #9f7835;
     background: linear-gradient(#dba74e, #9b662b);
     color: #1b1210;
-    padding: 9px 14px;
+    padding: 6px 10px;
     border-radius: 8px;
     font:
         bold 13px Arial,
         sans-serif;
-    box-shadow: 0 3px 0 #58371b;
+    box-shadow: 0 2px 0 #58371b;
     cursor: pointer;
 }
 
@@ -172,7 +229,7 @@ table {
 th,
 td {
     text-align: left;
-    padding: 17px 18px;
+    padding: 6px 12px;
     border-bottom: 1px solid #332a40;
 }
 
@@ -187,7 +244,7 @@ th {
 }
 
 td {
-    font-size: 17px;
+    font-size: 15px;
 }
 
 tbody tr {
@@ -198,9 +255,36 @@ tbody tr:hover {
     background: #ffffff08;
 }
 
+tbody tr.current-player {
+    background: #e8b85c20;
+    box-shadow: inset 4px 0 var(--gold);
+}
+
+.you-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 3px 7px;
+    border: 1px solid #9f7835;
+    border-radius: 999px;
+    color: var(--gold2);
+    font:
+        bold 10px Arial,
+        sans-serif;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
 .name {
     font-weight: bold;
     color: var(--gold2);
+}
+
+.rank {
+    color: var(--gold);
+    font:
+        bold 14px Arial,
+        sans-serif;
+    font-variant-numeric: tabular-nums;
 }
 
 .num {
@@ -212,13 +296,13 @@ tbody tr:hover {
     border: 1px solid #9f7835;
     background: linear-gradient(#dba74e, #9b662b);
     color: #1b1210;
-    padding: 9px 14px;
+    padding: 5px 9px;
     border-radius: 8px;
     text-decoration: none;
     font:
-        bold 13px Arial,
+        bold 12px Arial,
         sans-serif;
-    box-shadow: 0 3px 0 #58371b;
+    box-shadow: 0 2px 0 #58371b;
     cursor: pointer;
 }
 
@@ -229,7 +313,7 @@ tbody tr:hover {
 
 .empty,
 .error {
-    padding: 35px;
+    padding: 20px;
     text-align: center;
     color: var(--muted);
     font:
@@ -241,8 +325,11 @@ tbody tr:hover {
     color: var(--red);
 }
 
-.back {
-    margin-bottom: 20px;
+.profile-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
 }
 
 .profile {
@@ -253,7 +340,7 @@ tbody tr:hover {
 
 .identity,
 .stats {
-    padding: 27px;
+    padding: 20px;
 }
 
 .identity {
@@ -262,15 +349,15 @@ tbody tr:hover {
 }
 
 .avatar {
-    width: 105px;
-    height: 105px;
-    margin: 0 auto 18px;
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 12px;
     border-radius: 50%;
     display: grid;
     place-items: center;
     background: radial-gradient(circle, #ffe09a, #a96d30 62%, #44283b 64%);
     border: 4px solid var(--gold);
-    font-size: 48px;
+    font-size: 40px;
     color: #39202a;
 }
 
@@ -279,6 +366,14 @@ tbody tr:hover {
     color: var(--gold2);
     font-size: 30px;
     overflow-wrap: anywhere;
+}
+
+.profile-rank {
+    margin-top: 8px;
+    color: var(--gold);
+    font:
+        bold 14px Arial,
+        sans-serif;
 }
 
 .identity .id {
@@ -291,7 +386,7 @@ tbody tr:hover {
 }
 
 .stats h3 {
-    margin: 0 0 20px;
+    margin: 0 0 14px;
     color: var(--gold);
     font-size: 24px;
 }
@@ -299,11 +394,11 @@ tbody tr:hover {
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 10px;
 }
 
 .stat {
-    padding: 18px;
+    padding: 12px;
     border: 1px solid var(--line);
     border-radius: 12px;
     background: #100d1888;
@@ -322,8 +417,8 @@ tbody tr:hover {
 .stat strong {
     display: block;
     color: var(--gold2);
-    font-size: 28px;
-    margin-top: 6px;
+    font-size: 22px;
+    margin-top: 4px;
 }
 
 .wide {
@@ -353,7 +448,21 @@ tbody tr:hover {
 
     .wrap {
         width: min(100% - 20px, 1120px);
-        padding-top: 28px;
+        padding-top: 8px;
+    }
+
+    .site-header,
+    .logged-in-nav {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .site-header {
+        flex-direction: column;
+    }
+
+    .logged-in-nav {
+        justify-content: flex-start;
     }
 }
 
@@ -391,8 +500,4 @@ tbody tr:hover {
 
 .sort-button.active .sort-arrow {
     color: var(--gold2);
-}
-
-.sort-button.active.desc .sort-arrow {
-    transform: rotate(180deg);
 }

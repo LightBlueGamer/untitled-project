@@ -2,8 +2,9 @@ const API_BASE = '/api/players';
 const $ = s => document.querySelector(s);
 let allPlayers = [];
 let currentPage = 1;
+let currentUser = null;
 
-const PLAYERS_PER_PAGE = 10;
+let PLAYERS_PER_PAGE = 10;
 
 let sortState = {
   key: 'prestige',
@@ -11,8 +12,12 @@ let sortState = {
 };
 
 const SORT_STORAGE_KEY = 'ledger-sort-preference';
-const SORT_KEYS = ['prestige', 'level', 'balance'];
+const SORT_KEYS = ['prestige', 'balance'];
 const SORT_DIRECTIONS = ['asc', 'desc'];
+const SORT_ORDERS = {
+  prestige: ['prestige', 'level', 'experience', 'balance'],
+  balance: ['balance', 'prestige', 'level', 'experience']
+};
 
 function restoreSortState() {
   try {
@@ -65,17 +70,25 @@ function showError(message) {
   $('#error').classList.remove('hidden');
 }
 
-function renderPlayers() {
+function renderPlayers(adjustPageSize = true) {
   const query = $('#search').value.trim().toLowerCase();
 
-  const filteredPlayers = allPlayers
+  const sortedPlayers = [...allPlayers].sort(comparePlayers);
+  const ranksByPlayerId = new Map(
+    sortedPlayers.map((player, index) => [
+      String(player.id),
+      sortState.direction === 'asc'
+        ? sortedPlayers.length - index
+        : index + 1
+    ])
+  );
+  const filteredPlayers = sortedPlayers
     .filter(player => {
       const name = String(player.name ?? '').toLowerCase();
       const id = String(player.id ?? '');
 
       return name.includes(query) || id.includes(query);
     })
-    .sort(comparePlayers);
 
   const totalPages = Math.max(
     1,
@@ -94,10 +107,14 @@ function renderPlayers() {
   );
 
   $('#playersBody').innerHTML = visiblePlayers
-    .map(player => `
-      <tr>
+    .map(player => {
+      const isCurrentUser = currentUser?.id === player.id;
+      return `
+      <tr${isCurrentUser ? ' id="current-player-row" class="current-player"' : ''}>
+        <td class="rank">#${ranksByPlayerId.get(String(player.id))}</td>
         <td class="name">
           ${esc(player.name || 'Unknown')}
+          ${isCurrentUser ? '<span class="you-badge">You</span>' : ''}
         </td>
 
         <td class="num">
@@ -125,7 +142,8 @@ function renderPlayers() {
           </a>
         </td>
       </tr>
-    `)
+    `;
+    })
     .join('');
 
   $('#empty').classList.toggle(
@@ -140,30 +158,67 @@ function renderPlayers() {
 
   renderPagination(totalPages, filteredPlayers.length);
   updateSortIndicators();
+
+  if (adjustPageSize) {
+    fitPageSizeToViewport(filteredPlayers.length);
+  }
+}
+
+function fitPageSizeToViewport(totalPlayers) {
+  const firstRow = $('#playersBody').querySelector('tr');
+  if (!firstRow || totalPlayers === 0) {
+    return;
+  }
+
+  const rowHeight = Math.max(
+    ...Array.from($('#playersBody').querySelectorAll('tr'), row =>
+      row.getBoundingClientRect().height
+    )
+  );
+  const pagination = $('#pagination');
+  const paginationHeight = pagination.classList.contains('hidden')
+    ? 0
+    : pagination.getBoundingClientRect().height;
+  const wrap = document.querySelector('.wrap');
+  const bottomPadding = Number.parseFloat(
+    getComputedStyle(wrap).paddingBottom
+  ) || 0;
+  const availableBottom = window.innerHeight - paginationHeight - bottomPadding;
+  const availableHeight = Math.max(
+    rowHeight,
+    availableBottom - firstRow.getBoundingClientRect().top
+  );
+  const fittedPageSize = Math.min(
+    totalPlayers,
+    Math.max(1, Math.floor(availableHeight / rowHeight))
+  );
+
+  if (fittedPageSize !== PLAYERS_PER_PAGE) {
+    PLAYERS_PER_PAGE = fittedPageSize;
+    currentPage = Math.min(
+      currentPage,
+      Math.max(1, Math.ceil(totalPlayers / PLAYERS_PER_PAGE))
+    );
+    renderPlayers(false);
+  }
 }
 
 function comparePlayers(a, b) {
-  let difference = 0;
+  const sortOrder = SORT_ORDERS[sortState.key];
 
-  if (sortState.key === 'prestige') {
-    difference = Number(b.prestige ?? 0) - Number(a.prestige ?? 0);
-  }
+  for (const key of sortOrder) {
+    const aValue = Number(a[key] ?? 0);
+    const bValue = Number(b[key] ?? 0);
+    const difference = sortState.direction === 'asc'
+      ? aValue - bValue
+      : bValue - aValue;
 
-  if (sortState.key === 'level') {
-    difference = Number(b.level ?? 0) - Number(a.level ?? 0);
-
-    if (difference === 0) {
-      difference = Number(b.experience ?? 0) - Number(a.experience ?? 0);
+    if (difference !== 0) {
+      return difference;
     }
   }
 
-  if (sortState.key === 'balance') {
-    difference = Number(b.balance ?? 0) - Number(a.balance ?? 0);
-  }
-
-  return sortState.direction === 'asc'
-    ? -difference
-    : difference;
+  return 0;
 }
 
 async function loadPlayers() {
@@ -184,17 +239,108 @@ function stat(label, value, wide = false) {
 }
 
 async function loadProfile(id) {
-  $('#listView').classList.add('hidden');
-  $('#profileView').classList.remove('hidden');
   try {
     const r = await fetch(`${API_BASE}/${encodeURIComponent(id)}`);
     if (!r.ok) throw new Error(r.status === 404 ? 'Player not found' : `Request failed (${r.status})`);
     const p = await r.json();
     $('#profileName').textContent = p.name || 'Unknown adventurer';
     $('#avatar').textContent = (p.name || '?').charAt(0).toUpperCase();
+    const globalRank = [...allPlayers]
+      .sort(compareGlobalRank)
+      .findIndex(player => String(player.id) === String(p.id)) + 1;
+
+    $('#profileRank').textContent = globalRank
+      ? `Leaderboard rank #${globalRank}`
+      : 'Unranked';
     $('#statGrid').innerHTML = stat('Prestige', p.prestige) + stat('Level', p.level) + stat('Experience', `${p.experience}`) + stat('Balance', `$${Number(p.balance ?? 0).toLocaleString()}`) + stat('Experience multiplier', `${p.experienceMultiplier ?? 1}×`) + stat('Balance multiplier', `${p.balanceMultiplier ?? 1}×`);
   } catch (e) {
     $('#statGrid').innerHTML = `<div class="error wide">${esc(e.message)}</div>`;
+  }
+}
+
+function compareGlobalRank(a, b) {
+  return Number(b.prestige ?? 0) - Number(a.prestige ?? 0) ||
+    Number(b.level ?? 0) - Number(a.level ?? 0) ||
+    Number(b.experience ?? 0) - Number(a.experience ?? 0) ||
+    Number(b.balance ?? 0) - Number(a.balance ?? 0) ||
+    String(a.id).localeCompare(String(b.id));
+}
+
+function showLeaderboard() {
+  $('#listView').classList.remove('hidden');
+  $('#profileView').classList.add('hidden');
+  $('#leaderboardTab').setAttribute('aria-current', 'page');
+  $('#profileTab').removeAttribute('aria-current');
+  if (allPlayers.length > 0) {
+    renderPlayers();
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function showOwnProfile() {
+  if (!currentUser) {
+    return;
+  }
+
+  $('#listView').classList.add('hidden');
+  $('#profileView').classList.remove('hidden');
+  $('#leaderboardTab').removeAttribute('aria-current');
+  $('#profileTab').setAttribute('aria-current', 'page');
+  $('#jumpToPlayer').classList.remove('hidden');
+  await loadProfile(currentUser.id);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function jumpToCurrentPlayer() {
+  if (!currentUser) {
+    return;
+  }
+
+  $('#search').value = '';
+  const sortedPlayers = [...allPlayers].sort(comparePlayers);
+  const playerIndex = sortedPlayers.findIndex(
+    player => String(player.id) === currentUser.id
+  );
+
+  if (playerIndex === -1) {
+    showLeaderboard();
+    showError('Your Discord account does not have a player record on the leaderboard yet.');
+    return;
+  }
+
+  currentPage = Math.floor(playerIndex / PLAYERS_PER_PAGE) + 1;
+  showLeaderboard();
+  renderPlayers();
+  document
+    .querySelector('#current-player-row')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function initializeAuth() {
+  try {
+    const response = await fetch('/api/auth/me');
+    if (!response.ok) {
+      throw new Error(`Request failed (${response.status})`);
+    }
+
+    const auth = await response.json();
+    currentUser = auth.user;
+    $('#loginLink').classList.toggle('hidden', Boolean(currentUser) || !auth.enabled);
+    $('#loggedInNav').classList.toggle('hidden', !currentUser);
+    if (currentUser) {
+      $('#accountName').textContent = currentUser.displayName;
+    } else if (!auth.enabled) {
+      $('#loginLink').classList.remove('hidden');
+      $('#loginLink').textContent = 'Discord login unavailable';
+      $('#loginLink').setAttribute('aria-disabled', 'true');
+      $('#loginLink').removeAttribute('href');
+    }
+  } catch (error) {
+    console.error('Could not check Discord login status:', error);
+    $('#loginLink').classList.remove('hidden');
+    $('#loginLink').textContent = 'Discord login unavailable';
+    $('#loginLink').setAttribute('aria-disabled', 'true');
+    $('#loginLink').removeAttribute('href');
   }
 }
 
@@ -231,12 +377,10 @@ $('#search').addEventListener('input', () => {
   renderPlayers();
 });
 
-const id = new URLSearchParams(location.search).get('id');
-if (id) {
-  loadProfile(id);
-} else {
-  loadPlayers();
-}
+$('#leaderboardTab').addEventListener('click', showLeaderboard);
+$('#profileTab').addEventListener('click', showOwnProfile);
+$('#returnToLedger').addEventListener('click', showLeaderboard);
+$('#jumpToPlayer').addEventListener('click', jumpToCurrentPlayer);
 
 document
   .querySelectorAll('.sort-button')
@@ -263,6 +407,40 @@ document
       renderPlayers();
     });
   });
+
+async function initializePage() {
+  await initializeAuth();
+
+  const authError = new URLSearchParams(location.search).get('authError');
+  if (authError === 'not-configured') {
+    showError('Discord login is not configured on this server yet.');
+  } else if (authError === 'discord') {
+    showError('Discord login failed. Please try again.');
+  }
+
+  const requestedPlayerId = new URLSearchParams(location.search).get('id');
+  if (requestedPlayerId) {
+    await loadPlayers();
+    $('#listView').classList.add('hidden');
+    $('#profileView').classList.remove('hidden');
+    $('#jumpToPlayer').classList.toggle(
+      'hidden',
+      !currentUser || currentUser.id !== requestedPlayerId
+    );
+    await loadProfile(requestedPlayerId);
+  } else {
+    showLeaderboard();
+    await loadPlayers();
+  }
+}
+
+window.addEventListener('resize', () => {
+  if (!$('#listView').classList.contains('hidden')) {
+    renderPlayers();
+  }
+});
+
+void initializePage();
 
 function renderPagination(totalPages, totalPlayers) {
   const pagination = $('#pagination');

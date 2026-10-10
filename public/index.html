@@ -8,6 +8,20 @@
   </head>
   <body>
     <div class="wrap">
+      <header class="site-header">
+        <a class="site-brand" href="/">Prestigious Ledger</a>
+        <nav id="accountNav" class="account-nav" aria-label="Account navigation">
+          <a id="loginLink" class="btn" href="/auth/discord">Login with Discord</a>
+          <div id="loggedInNav" class="logged-in-nav hidden">
+            <span id="accountName" class="account-name"></span>
+            <button id="leaderboardTab" class="nav-link" type="button">Leaderboard</button>
+            <button id="profileTab" class="nav-link" type="button">Profile</button>
+            <form action="/auth/logout" method="post">
+              <button class="nav-link" type="submit">Log out</button>
+            </form>
+          </div>
+        </nav>
+      </header>
       <section id="listView">
         <div class="hero">
           <div>
@@ -33,6 +47,7 @@
             <table>
               <thead>
                 <tr>
+                  <th scope="col">Rank</th>
                   <th scope="col">Name</th>
 
                   <th scope="col" data-sort="prestige">
@@ -47,17 +62,7 @@
                     </button>
                   </th>
 
-                  <th scope="col" data-sort="level">
-                    <button
-                      type="button"
-                      class="sort-button"
-                      data-sort="level"
-                      aria-label="Sort by level and experience"
-                    >
-                      Level
-                      <span class="sort-arrow" aria-hidden="true">↕</span>
-                    </button>
-                  </th>
+                  <th scope="col">Level</th>
 
                   <th scope="col">Experience</th>
 
@@ -85,11 +90,15 @@
         </div>
       </section>
       <section id="profileView" class="hidden">
-        <div class="back"><a class="btn" href="/">← Return to ledger</a></div>
+        <div class="profile-actions">
+          <button id="returnToLedger" class="btn" type="button">← Return to ledger</button>
+          <button id="jumpToPlayer" class="btn hidden" type="button">Find me on the leaderboard</button>
+        </div>
         <div class="panel profile">
           <div class="identity">
             <div id="avatar" class="avatar">✦</div>
             <h2 id="profileName">Adventurer</h2>
+            <div id="profileRank" class="profile-rank"></div>
           </div>
           <div class="stats">
             <div class="eyebrow">Character record</div>

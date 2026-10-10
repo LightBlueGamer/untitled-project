@@ -34,10 +34,12 @@ export default defineConfig(
       globals: {
         document: 'readonly',
         fetch: 'readonly',
+        getComputedStyle: 'readonly',
         location: 'readonly',
         localStorage: 'readonly',
         console: 'readonly',
         URLSearchParams: 'readonly',
+        window: 'readonly',
       },
     },
   },
