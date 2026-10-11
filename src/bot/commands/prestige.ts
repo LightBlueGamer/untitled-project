@@ -3,7 +3,7 @@ import Player from "../../classes/Player.js";
 import { getMultipleRandomPrestigeBuffs } from "../../resources/functions.js";
 
 export default {
-    devMode: true,
+    devMode: false,
     data: new SlashCommandBuilder()
         .setName("prestige")
         .setDescription("Prestige your player to gain buffs and reset your progress.")

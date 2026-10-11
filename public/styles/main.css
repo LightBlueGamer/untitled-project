@@ -82,6 +82,7 @@ body:before {
         bold 14px Arial,
         sans-serif;
     cursor: pointer;
+    text-decoration: none;
 }
 
 .nav-link:hover,
@@ -500,4 +501,476 @@ tbody tr.current-player {
 
 .sort-button.active .sort-arrow {
     color: var(--gold2);
+}
+
+.balance-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.balance-label {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.balance-badge strong {
+    color: var(--gold2);
+    font-size: 28px;
+}
+
+.game-menu {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.game-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 220px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    color: var(--text);
+    background: var(--panel);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+
+.game-card:hover,
+.game-card[aria-selected="true"] {
+    border-color: var(--gold);
+    background: var(--panel2);
+}
+
+.game-icon {
+    color: var(--gold2);
+}
+
+.game-name {
+    font-weight: bold;
+}
+
+.game-desc {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.plinko-layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.plinko-board {
+    flex: 1 1 560px;
+    max-width: none;
+}
+
+.plinko-board canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.plinko-controls {
+    display: flex;
+    flex-direction: column;
+    flex: 0 1 340px;
+    gap: 14px;
+    font-size: 16px;
+}
+
+.wrap.wide {
+    width: calc(100% - 32px);
+    max-width: none;
+}
+
+.plinko-layout .plinko-board {
+    flex: 0 0 auto;
+    width: min(100%, calc((100vh - 450px) * 1500 / 1300));
+    margin: 0 auto;
+}
+
+.plinko-layout .plinko-controls {
+    flex: 1 1 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    align-items: end;
+}
+
+.plinko-controls .plinko-result,
+.plinko-controls .plinko-history {
+    grid-column: 1 / -1;
+}
+
+.bet-shortcuts {
+    display: flex;
+    gap: 12px;
+}
+
+.plinko-result {
+    min-height: 24px;
+    font-weight: bold;
+}
+
+.plinko-result.win {
+    color: var(--green);
+}
+
+.plinko-result.loss {
+    color: var(--red);
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.segmented {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.segmented button {
+    padding: 8px 0;
+    border: 0;
+    color: var(--muted);
+    background: var(--panel);
+    font: bold 14px Arial, sans-serif;
+    cursor: pointer;
+}
+
+.segmented button[aria-checked="true"] {
+    color: #17121f;
+    background: var(--gold);
+}
+
+.plinko-controls input[type="range"] {
+    width: 100%;
+    accent-color: var(--gold);
+}
+
+.plinko-controls button:disabled,
+.plinko-controls input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.total-bet {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel2);
+}
+
+.total-bet strong {
+    color: var(--gold2);
+}
+
+.plinko-board {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+}
+
+.plinko-history {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.history-chip {
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: bold;
+    background: var(--panel2);
+}
+
+.history-chip.win {
+    color: var(--green);
+}
+
+.history-chip.loss {
+    color: var(--red);
+}
+
+.blackjack-table {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+    padding: 10px 20px;
+    text-align: center;
+    border: 6px solid #3b2a1a;
+    border-radius: 24px;
+    background: radial-gradient(ellipse at center, #22724a 0%, #124a2d 65%, #0b3220 100%);
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.5), var(--shadow);
+}
+
+.bj-table-top {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.bj-chip {
+    padding: 8px 16px;
+    border: 3px dashed rgba(255, 255, 255, 0.6);
+    border-radius: 999px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.35);
+    font-size: 18px;
+}
+
+.bj-chip strong {
+    color: var(--gold2);
+}
+
+.bj-label {
+    color: #fff;
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.bj-total {
+    display: inline-block;
+    min-width: 36px;
+    margin-left: 8px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    color: #17121f;
+    background: var(--gold);
+    text-align: center;
+}
+
+.bj-total:empty {
+    display: none;
+}
+
+.bj-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    min-height: 112px;
+    margin-top: 2px;
+}
+
+.bj-card {
+    position: relative;
+    width: 78px;
+    height: 110px;
+    border-radius: 12px;
+    color: #17121f;
+    background: linear-gradient(160deg, #ffffff, #ece8f2);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5);
+    font-family: Georgia, serif;
+    font-weight: bold;
+}
+
+.bj-card.dealt {
+    animation: bj-deal 0.35s ease-out backwards;
+}
+
+@keyframes bj-deal {
+    from {
+        opacity: 0;
+        transform: translate(60px, -80px) rotate(12deg) scale(0.8);
+    }
+}
+
+.bj-card.red {
+    color: #c0392b;
+}
+
+.bj-card .corner {
+    position: absolute;
+    font-size: 18px;
+    line-height: 1.05;
+    text-align: center;
+    white-space: pre;
+}
+
+.bj-card .corner.top {
+    top: 8px;
+    left: 10px;
+}
+
+.bj-card .corner.bottom {
+    right: 10px;
+    bottom: 8px;
+    transform: rotate(180deg);
+}
+
+.bj-card .pip {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+}
+
+.bj-card.back {
+    border: 6px solid #fff;
+    background: repeating-linear-gradient(45deg, #5b3a8c, #5b3a8c 10px, #7a52b3 10px, #7a52b3 20px);
+}
+
+.bj-banner {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    width: fit-content;
+    height: fit-content;
+    margin: auto;
+    min-width: 320px;
+    padding: 14px 44px;
+    border: 3px solid currentColor;
+    border-radius: 20px;
+    background: rgba(10, 10, 16, 0.9);
+    text-align: center;
+    pointer-events: none;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35), 0 12px 40px rgba(0, 0, 0, 0.7);
+    animation: bj-pop 0.35s ease-out;
+}
+
+@keyframes bj-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.7);
+    }
+}
+
+.bj-banner.win {
+    color: var(--green);
+}
+
+.bj-banner.loss {
+    color: var(--red);
+}
+
+.bj-banner.push {
+    color: var(--gold2);
+}
+
+.bj-banner-title {
+    font-size: 26px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.bj-banner-amount {
+    font-size: 34px;
+    font-weight: 900;
+}
+
+.blackjack-controls {
+    margin-top: 10px;
+}
+
+.bj-bet {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.bj-bet .search {
+    flex: 0 0 110px;
+    box-sizing: border-box;
+    width: 110px;
+    max-width: 110px;
+    min-width: 0;
+    height: 20px;
+    margin: 0;
+    padding: 0 8px;
+    font-size: 16px;
+    text-align: center;
+}
+
+.bj-bet .bet-shortcuts {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bj-bet .bet-shortcuts button {
+    min-width: 0;
+    height: 10px;
+    padding: 0 14px;
+    font-size: 16px;
+}
+
+.blackjack-controls .bj-bet .btn,
+.blackjack-controls .bj-actions .btn {
+    height: 20px;
+    padding: 0 26px;
+}
+
+.bj-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+}
+
+.blackjack-controls {
+    padding: 10px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.04);
+    text-align: center;
+}
+
+.blackjack-table {
+    overflow: hidden;
+}
+
+.bj-hand {
+    padding: 2px 0;
+}
+
+.bj-card {
+    transition: transform 0.15s ease;
+}
+
+.bj-card:hover {
+    transform: translateY(-4px);
+}
+
+.blackjack-controls button {
+    min-width: 112px;
+    padding: 0 26px;
+    font-size: 17px;
+}
+
+.blackjack-table .plinko-result {
+    font-size: 20px;
+}
+
+.blackjack-controls button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }

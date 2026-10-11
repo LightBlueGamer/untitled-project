@@ -8,20 +8,7 @@
   </head>
   <body>
     <div class="wrap">
-      <header class="site-header">
-        <a class="site-brand" href="/">Prestigious Ledger</a>
-        <nav id="accountNav" class="account-nav" aria-label="Account navigation">
-          <a id="loginLink" class="btn" href="/auth/discord">Login with Discord</a>
-          <div id="loggedInNav" class="logged-in-nav hidden">
-            <span id="accountName" class="account-name"></span>
-            <button id="leaderboardTab" class="nav-link" type="button">Leaderboard</button>
-            <button id="profileTab" class="nav-link" type="button">Profile</button>
-            <form action="/auth/logout" method="post">
-              <button class="nav-link" type="submit">Log out</button>
-            </form>
-          </div>
-        </nav>
-      </header>
+      <header id="siteHeader"></header>
       <section id="listView">
         <div class="hero">
           <div>
@@ -108,6 +95,7 @@
         </div>
       </section>
     </div>
+    <script src="/scripts/nav.js"></script>
     <script src="/scripts/main.js"></script>
   </body>
 </html>

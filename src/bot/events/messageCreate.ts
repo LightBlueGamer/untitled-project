@@ -38,7 +38,7 @@ export default {
                 if (canPrestige && reachedPrestigeRequirement) {
                     await (message.channel as GuildTextBasedChannel).send({
                         content:
-                            `${member}, congratulations! You've leveled up to level ${currentLevel}! 🎉`,
+                            `${member}, congratulations! You've leveled up to level ${currentLevel}! You can now prestige using the /prestige command!`,
                     });
                 } else {
                     const levelUpMessage = await (

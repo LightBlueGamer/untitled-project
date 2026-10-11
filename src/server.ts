@@ -1,6 +1,7 @@
 import express from 'express'
 import apiRouter from './api/router.js'
-import { authApiRouter, authRouter, discordOAuthCallback } from './auth.js'
+import casinoRouter from './api/casino.js'
+import { authApiRouter, authRouter, discordOAuthCallback, requireLogin } from './auth.js'
 import { initDatabase, initRedis } from './database.js'
 
 import { fileURLToPath } from "node:url";
@@ -15,6 +16,7 @@ const port = Number(process.env.PORT) || 3000
 
 app.use('/api', apiRouter)
 app.use('/api/auth', authApiRouter)
+app.use('/api/casino', express.json(), casinoRouter)
 app.use('/auth', authRouter)
 
 const configuredRedirectUri = process.env.DISCORD_REDIRECT_URI
@@ -30,6 +32,12 @@ if (configuredRedirectUri) {
 
     app.get(callbackPath, discordOAuthCallback)
 }
+
+// Redirects to the leaderboard when logged out, also for the direct file URL.
+app.get(['/casino', '/casino.html'], requireLogin, (_request, response) => {
+    response.setHeader('Cache-Control', 'no-store')
+    response.sendFile(join(projectRoot, 'public', 'casino.html'))
+})
 
 app.use('/scripts', express.static(join(projectRoot, 'public', 'scripts')))
 app.use('/styles', express.static(join(projectRoot, 'public', 'styles')))

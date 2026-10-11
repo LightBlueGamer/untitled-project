@@ -40,7 +40,21 @@ export default defineConfig(
         console: 'readonly',
         URLSearchParams: 'readonly',
         window: 'readonly',
+        performance: 'readonly',
+        requestAnimationFrame: 'readonly',
+        setTimeout: 'readonly',
+        AudioContext: 'readonly',
+        authReady: 'readonly',
+        setNavCurrent: 'readonly',
+        showLeaderboard: 'readonly',
+        showOwnProfile: 'readonly',
       },
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^(authReady|setNavCurrent|showLeaderboard|showOwnProfile)$' },
+      ],
     },
   },
 )

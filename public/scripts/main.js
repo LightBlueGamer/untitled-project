@@ -269,8 +269,7 @@ function compareGlobalRank(a, b) {
 function showLeaderboard() {
   $('#listView').classList.remove('hidden');
   $('#profileView').classList.add('hidden');
-  $('#leaderboardTab').setAttribute('aria-current', 'page');
-  $('#profileTab').removeAttribute('aria-current');
+  setNavCurrent('leaderboard');
   if (allPlayers.length > 0) {
     renderPlayers();
   }
@@ -284,8 +283,7 @@ async function showOwnProfile() {
 
   $('#listView').classList.add('hidden');
   $('#profileView').classList.remove('hidden');
-  $('#leaderboardTab').removeAttribute('aria-current');
-  $('#profileTab').setAttribute('aria-current', 'page');
+  setNavCurrent('profile');
   $('#jumpToPlayer').classList.remove('hidden');
   await loadProfile(currentUser.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -317,31 +315,8 @@ function jumpToCurrentPlayer() {
 }
 
 async function initializeAuth() {
-  try {
-    const response = await fetch('/api/auth/me');
-    if (!response.ok) {
-      throw new Error(`Request failed (${response.status})`);
-    }
-
-    const auth = await response.json();
-    currentUser = auth.user;
-    $('#loginLink').classList.toggle('hidden', Boolean(currentUser) || !auth.enabled);
-    $('#loggedInNav').classList.toggle('hidden', !currentUser);
-    if (currentUser) {
-      $('#accountName').textContent = currentUser.displayName;
-    } else if (!auth.enabled) {
-      $('#loginLink').classList.remove('hidden');
-      $('#loginLink').textContent = 'Discord login unavailable';
-      $('#loginLink').setAttribute('aria-disabled', 'true');
-      $('#loginLink').removeAttribute('href');
-    }
-  } catch (error) {
-    console.error('Could not check Discord login status:', error);
-    $('#loginLink').classList.remove('hidden');
-    $('#loginLink').textContent = 'Discord login unavailable';
-    $('#loginLink').setAttribute('aria-disabled', 'true');
-    $('#loginLink').removeAttribute('href');
-  }
+  const auth = await authReady;
+  currentUser = auth.user;
 }
 
 function updateSortIndicators() {
@@ -377,8 +352,6 @@ $('#search').addEventListener('input', () => {
   renderPlayers();
 });
 
-$('#leaderboardTab').addEventListener('click', showLeaderboard);
-$('#profileTab').addEventListener('click', showOwnProfile);
 $('#returnToLedger').addEventListener('click', showLeaderboard);
 $('#jumpToPlayer').addEventListener('click', jumpToCurrentPlayer);
 
@@ -419,7 +392,10 @@ async function initializePage() {
   }
 
   const requestedPlayerId = new URLSearchParams(location.search).get('id');
-  if (requestedPlayerId) {
+  if (new URLSearchParams(location.search).get('view') === 'profile' && currentUser) {
+    await loadPlayers();
+    await showOwnProfile();
+  } else if (requestedPlayerId) {
     await loadPlayers();
     $('#listView').classList.add('hidden');
     $('#profileView').classList.remove('hidden');

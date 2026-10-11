@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Casino | Prestigious Ledger</title>
+    <link rel="stylesheet" href="/styles/main.css">
+  </head>
+  <body>
+    <div class="wrap wide">
+      <header id="siteHeader"></header>
+      <section>
+        <div class="hero">
+          <div>
+            <div class="eyebrow">Fortune Favors the Bold</div>
+            <h1>Casino</h1>
+          </div>
+          <div class="balance-badge">
+            <span class="balance-label">Your balance</span>
+            <strong id="casinoBalance">…</strong>
+            <button id="soundToggle" class="nav-link" type="button" aria-pressed="true">🔊 Sound on</button>
+          </div>
+        </div>
+
+        <div id="gameMenu" class="game-menu" role="tablist" aria-label="Casino games">
+          <button class="game-card" type="button" role="tab" data-game="plinko" aria-selected="false">
+            <span class="game-icon">●</span>
+            <span class="game-name">Plinko</span>
+            <span class="game-desc">Pick your risk, rows and balls.</span>
+          </button>
+          <button class="game-card" type="button" role="tab" data-game="blackjack" aria-selected="false">
+            <span class="game-icon">♠</span>
+            <span class="game-name">Blackjack</span>
+            <span class="game-desc">Beat the dealer to 21. Blackjack pays 3:2.</span>
+          </button>
+        </div>
+
+        <div id="game-blackjack" class="panel game-panel hidden" role="tabpanel">
+          <div class="blackjack-table">
+            <div class="bj-table-top">
+              <span class="bj-chip">Bet <strong id="bjBetShown">$0</strong></span>
+            </div>
+            <div class="bj-hand">
+              <div class="bj-label">Dealer <span id="bjDealerTotal" class="bj-total"></span></div>
+              <div id="bjDealer" class="bj-cards"></div>
+            </div>
+            <div id="bjBanner" class="bj-banner hidden" aria-live="polite">
+              <div id="bjBannerTitle" class="bj-banner-title"></div>
+              <div id="bjBannerAmount" class="bj-banner-amount"></div>
+            </div>
+            <div class="bj-hand">
+              <div class="bj-label">You <span id="bjPlayerTotal" class="bj-total"></span></div>
+              <div id="bjPlayer" class="bj-cards"></div>
+            </div>
+            <div id="bjResult" class="plinko-result" aria-live="polite"></div>
+          </div>
+          <div class="blackjack-controls">
+            <div id="bjBetControls" class="bj-bet">
+              <label for="bjBet" class="eyebrow">Bet</label>
+              <input id="bjBet" class="search" type="number" min="1" step="1" value="10" inputmode="numeric">
+              <div class="bet-shortcuts">
+                <button type="button" class="nav-link" data-bjbet="half">½</button>
+                <button type="button" class="nav-link" data-bjbet="double">2×</button>
+                <button type="button" class="nav-link" data-bjbet="max">Max</button>
+                <button id="bjDeal" class="btn" type="button">Deal</button>
+              </div>
+              <p></p>
+            </div>
+            <div id="bjActions" class="bj-actions hidden">
+              <button id="bjHit" class="btn" type="button">Hit</button>
+              <button id="bjStand" class="btn" type="button">Stand</button>
+              <button id="bjDouble" class="btn" type="button">Double down</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="game-plinko" class="panel game-panel hidden" role="tabpanel">
+          <div class="plinko-layout">
+            <div class="plinko-board">
+              <canvas id="plinkoCanvas" width="1500" height="1300"></canvas>
+            </div>
+            <div class="plinko-controls">
+              <div class="control-group">
+                <span class="eyebrow">Risk</span>
+                <div class="segmented" id="plinkoRisk" role="radiogroup" aria-label="Risk level">
+                  <button type="button" role="radio" aria-checked="false" data-risk="low">Low</button>
+                  <button type="button" role="radio" aria-checked="true" data-risk="medium">Medium</button>
+                  <button type="button" role="radio" aria-checked="false" data-risk="high">High</button>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label for="plinkoRows" class="eyebrow">Rows: <span id="plinkoRowsValue">12</span></label>
+                <input id="plinkoRows" type="range" min="8" max="16" step="1" value="12">
+              </div>
+
+              <div class="control-group">
+                <label for="plinkoBet" class="eyebrow">Bet per ball</label>
+                <input id="plinkoBet" class="search" type="number" min="1" step="1" value="10" inputmode="numeric">
+                <div class="bet-shortcuts">
+                  <button type="button" class="nav-link" data-bet="half">½</button>
+                  <button type="button" class="nav-link" data-bet="double">2×</button>
+                  <button type="button" class="nav-link" data-bet="max">Max</button>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label for="plinkoBalls" class="eyebrow">Balls: <span id="plinkoBallsValue">1</span></label>
+                <input id="plinkoBalls" type="range" min="1" max="50" step="1" value="1">
+              </div>
+
+              <div class="total-bet">Total bet <strong id="plinkoTotal">$10</strong></div>
+              <button id="plinkoDrop" class="btn" type="button">Drop balls</button>
+              <div id="plinkoResult" class="plinko-result" aria-live="polite"></div>
+              <div id="plinkoHistory" class="plinko-history" aria-label="Recent results"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script src="/scripts/nav.js"></script>
+    <script src="/scripts/casino.js"></script>
+  </body>
+</html>

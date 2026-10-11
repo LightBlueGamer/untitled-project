@@ -224,23 +224,44 @@ authRouter.post("/logout", async (request, response) => {
     response.redirect(303, "/");
 });
 
-authApiRouter.get("/me", async (request, response) => {
-    response.setHeader("Cache-Control", "no-store");
-
-    const sessionId = sessionIdFromCookie(request.headers.cookie);
+export async function loadSession(
+    cookieHeader: string | undefined,
+): Promise<LoginSession | null> {
+    const sessionId = sessionIdFromCookie(cookieHeader);
     const sessionValue = sessionId
         ? await getCache().get(`login-session:${sessionId}`)
         : null;
 
-    let user: LoginSession | null = null;
-    if (sessionValue) {
-        try {
-            user = JSON.parse(sessionValue) as LoginSession;
-        } catch (error) {
-            console.error("Could not read the Discord login session:", error);
-            await getCache().del(`login-session:${sessionId}`);
-        }
+    if (!sessionValue) {
+        return null;
     }
+
+    try {
+        return JSON.parse(sessionValue) as LoginSession;
+    } catch (error) {
+        console.error("Could not read the Discord login session:", error);
+        await getCache().del(`login-session:${sessionId}`);
+        return null;
+    }
+}
+
+export const requireLogin: RequestHandler = async (request, response, next) => {
+    try {
+        const user = await loadSession(request.headers.cookie);
+        if (!user) {
+            response.redirect("/");
+            return;
+        }
+        next();
+    } catch (error) {
+        next(error);
+    }
+};
+
+authApiRouter.get("/me", async (request, response) => {
+    response.setHeader("Cache-Control", "no-store");
+
+    const user = await loadSession(request.headers.cookie);
 
     response.json({
         enabled: oauthConfiguration() !== null,
