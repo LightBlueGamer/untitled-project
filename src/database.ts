@@ -32,6 +32,25 @@ export async function initDatabase(): Promise<void> {
             data JSONB NOT NULL DEFAULT '{}'::jsonb
         )
     `);
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS casino_bets (
+            id BIGSERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            game TEXT NOT NULL,
+            bet BIGINT NOT NULL,
+            payout BIGINT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    `);
+    await pool.query(
+        `CREATE INDEX IF NOT EXISTS casino_bets_user_idx ON casino_bets (user_id)`,
+    );
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS casino_lobbies (
+            id TEXT PRIMARY KEY,
+            data JSONB NOT NULL
+        )
+    `);
 }
 
 export const redisClient: RedisClientType = createClient({

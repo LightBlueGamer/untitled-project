@@ -33,9 +33,162 @@
             <span class="game-name">Blackjack</span>
             <span class="game-desc">Beat the dealer to 21. Blackjack pays 3:2.</span>
           </button>
+          <button class="game-card" type="button" role="tab" data-game="bills" aria-selected="false">
+            <span class="game-icon">🎲</span>
+            <span class="game-name">Pass the Bills</span>
+            <span class="game-desc">Dice game with a circle of players. Last bill rolls a circle to win the pot.</span>
+          </button>
+          <button class="game-card" type="button" role="tab" data-game="lobbies"           data-lobby-game="solo" aria-selected="false">
+            <span class="game-icon">🂡</span>
+            <span class="game-name">Poker</span>
+                      <span class="game-desc">Single-player Texas Hold'em against bots.</span>
+          </button>
+                    <button class="game-card" type="button" role="tab" data-game="lobbies" data-lobby-game="multi" aria-selected="false">
+            <span class="game-icon">👥</span>
+            <span class="game-name">Multiplayer</span>
+            <span class="game-desc">Play Pass the Bills or Poker with real players in a lobby.</span>
+          </button>
+          <button class="game-card" type="button" role="tab" data-game="leaderboard" aria-selected="false">
+            <span class="game-icon">♛</span>
+            <span class="game-name">Leaderboard</span>
+            <span class="game-desc">Top players, house balance and biggest wins.</span>
+          </button>
+        </div>
+
+        <div id="game-bills" class="panel game-panel hidden" role="tabpanel">
+          <details class="rules">
+            <summary>How to play</summary>
+            <ul>
+              <li>Everyone at the table puts down 3 bills worth your bill value. Your total bet is 3 × the bill value.</li>
+              <li>On your turn you roll one die per bill you hold (max 3). Faces: ⚪ circle = keep the bill, ⬅️ left = pass it to the left, ➡️ right = pass it to the right, ⭐ star = put it in the centre (out of play).</li>
+              <li>Play goes around the circle until only one bill is left.</li>
+              <li>The holder of the last bill must roll a circle to win the whole pot. Left/right passes the bill on, a star is a re-roll.</li>
+              <li>If you win you get the pot times a multiplier that grows with the table size: 3 players 1×, 4 players 1.25×, 5 players 1.5×, 6 players 1.75×, 7 players 2×, 8 players 4×.</li>
+              <li>If anyone else wins, you lose your bet. Tick "Auto roll" to roll your dice automatically.</li>
+            </ul>
+          </details>
+          <div class="bills-table">
+            <div id="billsSeats" class="bills-seats"></div>
+            <div class="bills-center">
+              <span class="eyebrow">Pot</span>
+              <strong id="billsPot">$0</strong>
+              <div id="billsDice" class="bills-dice" aria-live="polite"></div>
+              <div id="billsStatus" class="muted-note"></div>
+            </div>
+          </div>
+          <div class="blackjack-controls">
+            <div class="bj-bet">
+              <label for="billsBet" class="eyebrow">Bill value (you put down 3)</label>
+              <input id="billsBet" class="search" type="number" min="1" step="1" value="10" inputmode="numeric">
+              <label for="billsPlayers" class="eyebrow">Players: <span id="billsPlayersValue">6</span></label>
+              <input id="billsPlayers" type="range" min="3" max="8" step="1" value="6">
+              <div class="total-bet">Total bet <strong id="billsTotal">$30</strong></div>
+              <div class="total-bet">Multiplier <strong id="billsMultiplier">1.75×</strong> · Possible win <strong id="billsPossible">$0</strong></div>
+              <label class="eyebrow"><input id="billsAuto" type="checkbox"> Auto roll</label>
+              <button id="billsRoll" class="btn hidden" type="button">Roll dice</button>
+              <div class="bet-shortcuts">
+                <button type="button" class="nav-link" data-billsbet="half">½</button>
+                <button type="button" class="nav-link" data-billsbet="double">2×</button>
+                <button type="button" class="nav-link" data-billsbet="max">Max</button>
+                <button id="billsPlay" class="btn" type="button">Play</button>
+              </div>
+              <div id="billsResult" class="plinko-result" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="game-lobbies" class="panel game-panel hidden" role="tabpanel">
+          <div id="lobbyBrowser">
+            <details class="rules" data-only="multi">
+              <summary>How to play</summary>
+              <ul>
+                <li>One player creates a lobby and others join from the list. The host starts the game once at least 2 players are seated.</li>
+                <li><strong>Pass the Bills:</strong> every player stakes 3 bills (3 × the bill value). Take turns rolling one die per bill you hold: circle keeps it, left/right passes it, star puts it in the centre. When one bill is left, its holder rolls until they get a circle. The winner takes the whole pot (no multiplier). If you leave mid-game your seat auto-rolls and your stake stays in the pot.</li>
+                <li><strong>Poker (Texas Hold'em):</strong> your buy-in becomes your chips. Blinds are 5% and 10% of the buy-in. Everyone gets two private cards, then bet over the flop, turn and river to make the best 5-card hand. Hands keep going until you leave, when your chips are paid back to your balance. You can only join between hands. You have 45 seconds to act before an automatic check or fold.</li>
+              </ul>
+            </details>
+            <details class="rules" data-only="solo">
+              <summary>How to play</summary>
+              <ul>
+                <li>Single-player Texas Hold'em against bots. Your buy-in becomes your chips; the bots play with free chips.</li>
+                <li>Blinds are 5% and 10% of the buy-in. Everyone gets two private cards, then bet over the flop, turn and river to make the best 5-card hand.</li>
+                <li>Hands keep going until you leave, when your chips are paid back to your balance. You have 45 seconds to act before an automatic check or fold.</li>
+              </ul>
+            </details>
+            <div class="blackjack-controls">
+              <div class="bj-bet">
+                <span class="eyebrow" data-only="multi">Create a lobby</span>
+                <span class="eyebrow" data-only="solo">Play poker vs bots</span>
+                <select id="lobbyGame" class="search" data-only="multi">
+                  <option value="bills">Pass the Bills</option>
+                  <option value="poker">Poker</option>
+                </select>
+                <label for="lobbyBet" class="eyebrow" id="lobbyBetLabel">Buy-in</label>
+                <input id="lobbyBet" class="search" type="number" min="1" step="1" value="200" inputmode="numeric">
+                <label for="lobbyMax" class="eyebrow" data-only="multi">Max players: <span id="lobbyMaxValue">6</span></label>
+                <input id="lobbyMax" type="range" min="2" max="6" step="1" value="6" data-only="multi">
+                <label for="lobbyBots" class="eyebrow" id="lobbyBotsLabel" data-only="solo">Bots: <span id="lobbyBotsValue">3</span></label>
+                <input id="lobbyBots" type="range" min="1" max="5" step="1" value="3" data-only="solo">
+                <div class="total-bet">You pay <strong id="lobbyCost">$200</strong></div>
+                <button id="lobbyCreate" class="btn" type="button">Create lobby</button>
+                <div id="lobbyMessage" class="plinko-result" aria-live="polite"></div>
+              </div>
+            </div>
+            <div data-only="multi">
+              <h3 class="eyebrow">Open lobbies</h3>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Game</th><th>Host</th><th>Stake</th><th>Players</th><th></th></tr></thead>
+                  <tbody id="lobbyList"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div id="lobbyRoom" class="hidden"></div>
+        </div>
+
+        <div id="game-leaderboard" class="panel game-panel hidden" role="tabpanel">
+          <div class="house-grid">
+            <div class="house-stat"><span class="eyebrow">House balance</span><strong id="houseNet">…</strong><span id="houseNote" class="muted-note"></span></div>
+            <div class="house-stat"><span class="eyebrow">Total wagered</span><strong id="houseWagered">…</strong></div>
+            <div class="house-stat"><span class="eyebrow">Total paid out</span><strong id="housePaid">…</strong></div>
+            <div class="house-stat"><span class="eyebrow">Rounds played</span><strong id="houseRounds">…</strong></div>
+          </div>
+
+          <div class="board-header">
+            <h2>Top players</h2>
+            <div class="bet-shortcuts">
+              <button type="button" class="nav-link" data-lbsort="net" aria-pressed="true">Most won</button>
+              <button type="button" class="nav-link" data-lbsort="wagered" aria-pressed="false">Most gambled</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Player</th><th>Net</th><th>Gambled</th><th>Rounds</th></tr></thead>
+              <tbody id="lbPlayers"></tbody>
+            </table>
+          </div>
+
+          <div class="board-header"><h2>Biggest wins</h2><span class="muted-note">Ranked by profit</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Player</th><th>Game</th><th>Bet</th><th>Won</th><th>Multiplier</th></tr></thead>
+              <tbody id="lbWins"></tbody>
+            </table>
+          </div>
         </div>
 
         <div id="game-blackjack" class="panel game-panel hidden" role="tabpanel">
+          <details class="rules">
+            <summary>How to play</summary>
+            <ul>
+              <li>Get a hand closer to 21 than the dealer without going over.</li>
+              <li>Number cards count their value, J/Q/K count 10, and an Ace counts 11 or 1, whichever is better.</li>
+              <li>Hit to take another card, Stand to keep your hand, or Double down to double your bet, take exactly one more card and stand.</li>
+              <li>The dealer draws until reaching 17 or more and stands on all 17s.</li>
+              <li>Win pays 1:1, a natural blackjack (21 with two cards) pays 3:2, and a tie returns your bet. Going over 21 loses. There is no splitting.</li>
+            </ul>
+          </details>
           <div class="blackjack-table">
             <div class="bj-table-top">
               <span class="bj-chip">Bet <strong id="bjBetShown">$0</strong></span>
@@ -75,6 +228,16 @@
         </div>
 
         <div id="game-plinko" class="panel game-panel hidden" role="tabpanel">
+          <details class="rules">
+            <summary>How to play</summary>
+            <ul>
+              <li>Set a bet per ball, how many balls to drop (1–50), and press Drop balls. Each ball falls through the pegs and lands in a slot at the bottom.</li>
+              <li>The slot's multiplier is multiplied by your bet per ball. Below 1× loses part of your bet, above 1× wins.</li>
+              <li>Risk changes the payouts: low has small swings, high has big payouts at the edges and tiny ones in the middle.</li>
+              <li>More rows raise the top payout. The fewest rows give 25% of the top multiplier, 16 rows give 100% (20× on high risk).</li>
+              <li>Auto drop keeps dropping one ball at a time at the chosen speed until you stop it or run out of money.</li>
+            </ul>
+          </details>
           <div class="plinko-layout">
             <div class="plinko-board">
               <canvas id="plinkoCanvas" width="1500" height="1300"></canvas>
@@ -110,7 +273,12 @@
               </div>
 
               <div class="total-bet">Total bet <strong id="plinkoTotal">$10</strong></div>
+              <div class="control-group">
+                <label for="plinkoSpeed" class="eyebrow">Auto drop speed: <span id="plinkoSpeedValue">10</span>/sec</label>
+                <input id="plinkoSpeed" type="range" min="1" max="20" step="1" value="10">
+              </div>
               <button id="plinkoDrop" class="btn" type="button">Drop balls</button>
+              <button id="plinkoAuto" class="btn" type="button">Auto drop</button>
               <div id="plinkoResult" class="plinko-result" aria-live="polite"></div>
               <div id="plinkoHistory" class="plinko-history" aria-label="Recent results"></div>
             </div>
@@ -120,5 +288,6 @@
     </div>
     <script src="/scripts/nav.js"></script>
     <script src="/scripts/casino.js"></script>
+    <script src="/scripts/lobbies.js"></script>
   </body>
 </html>

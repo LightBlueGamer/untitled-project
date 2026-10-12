@@ -1,6 +1,7 @@
 import express from 'express'
 import apiRouter from './api/router.js'
 import casinoRouter from './api/casino.js'
+import { restoreLobbies } from './api/lobbies.js'
 import { authApiRouter, authRouter, discordOAuthCallback, requireLogin } from './auth.js'
 import { initDatabase, initRedis } from './database.js'
 
@@ -50,6 +51,7 @@ app.get('/', (_request, response) => {
 async function startServer(): Promise<void> {
     await initDatabase()
     await initRedis()
+    await restoreLobbies()
 
     app.listen(port, () => {
         console.log(`Server listening on http://localhost:${port}`)

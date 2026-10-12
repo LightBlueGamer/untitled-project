@@ -3,6 +3,7 @@ import { Router, type RequestHandler } from "express";
 import { loadSession } from "../auth.js";
 import { getCache, getPool } from "../database.js";
 import Player from "../classes/Player.js";
+import lobbiesRouter from "./lobbies.js";
 
 const PLINKO_MIN_ROWS = 8;
 const PLINKO_MAX_ROWS = 16;
@@ -83,9 +84,93 @@ const requireSession: RequestHandler = async (request, response, next) => {
 };
 
 casinoRouter.use(requireSession);
+casinoRouter.use("/lobbies", lobbiesRouter);
+
+// Stats must never break a game, so failures are only logged.
+export async function recordBets(
+    userId: string,
+    game: "plinko" | "blackjack" | "bills" | "poker",
+    rounds: { bet: number; payout: number }[],
+): Promise<void> {
+    try {
+        await getPool().query(
+            `INSERT INTO casino_bets (user_id, game, bet, payout)
+             SELECT $1, $2, bet, payout
+             FROM unnest($3::bigint[], $4::bigint[]) AS t(bet, payout)`,
+            [userId, game, rounds.map((r) => r.bet), rounds.map((r) => r.payout)],
+        );
+    } catch (error) {
+        console.error("Failed to record casino bets:", error);
+    }
+}
+
+casinoRouter.get("/stats", async (request, response) => {
+    const sort = request.query.sort === "wagered" ? "wagered" : "net";
+    const pool = getPool();
+
+    const [house, leaders, biggest] = await Promise.all([
+        pool.query<{ wagered: string; paid: string; rounds: string }>(
+            `SELECT COALESCE(SUM(bet), 0) AS wagered,
+                    COALESCE(SUM(payout), 0) AS paid,
+                    COUNT(*) AS rounds
+             FROM casino_bets`,
+        ),
+        pool.query(
+            `SELECT b.user_id AS id,
+                    COALESCE(p.data->>'name', b.user_id) AS name,
+                    SUM(b.bet) AS wagered,
+                    SUM(b.payout) - SUM(b.bet) AS net,
+                    COUNT(*) AS rounds
+             FROM casino_bets b
+             LEFT JOIN players p ON p.id = b.user_id
+             GROUP BY b.user_id, p.data->>'name'
+             ORDER BY ${sort === "wagered" ? "wagered" : "net"} DESC
+             LIMIT 10`,
+        ),
+        pool.query(
+            `SELECT * FROM (
+                 SELECT DISTINCT ON (b.user_id)
+                        COALESCE(p.data->>'name', b.user_id) AS name,
+                        b.game, b.bet, b.payout, b.created_at
+                 FROM casino_bets b
+                 LEFT JOIN players p ON p.id = b.user_id
+                 WHERE b.payout > b.bet
+                 ORDER BY b.user_id, b.payout - b.bet DESC, b.payout::numeric / b.bet DESC
+             ) best
+             ORDER BY payout - bet DESC, payout::numeric / bet DESC
+             LIMIT 10`,
+        ),
+    ]);
+
+    const wagered = Number(house.rows[0].wagered);
+    const paid = Number(house.rows[0].paid);
+    response.json({
+        sort,
+        house: {
+            wagered,
+            paidOut: paid,
+            net: wagered - paid,
+            rounds: Number(house.rows[0].rounds),
+        },
+        leaders: leaders.rows.map((row) => ({
+            name: row.name,
+            wagered: Number(row.wagered),
+            net: Number(row.net),
+            rounds: Number(row.rounds),
+        })),
+        biggestWins: biggest.rows.map((row) => ({
+            name: row.name,
+            game: row.game,
+            bet: Number(row.bet),
+            payout: Number(row.payout),
+            multiplier: Number(row.payout) / Number(row.bet),
+            createdAt: row.created_at,
+        })),
+    });
+});
 
 // Applies a balance change only if the balance is at least `required`; returns the new balance or null.
-async function adjustBalance(
+export async function adjustBalance(
     userId: string,
     delta: number,
     required: number,
@@ -172,18 +257,9 @@ casinoRouter.post("/plinko", async (request, response) => {
 
     const multipliers = plinkoMultipliers(rows, risk);
     const userId: string = response.locals.userId;
-    const owner = isOwner(userId);
-    const rollPath = () => Array.from({ length: rows }, () => randomInt(2));
     const drops = Array.from({ length: balls }, () => {
-        let path = rollPath();
-        const slotOf = (p: number[]) => p.reduce<number>((sum, step) => sum + step, 0);
-        if (owner && randomInt(100) < 35) {
-            const other = rollPath();
-            if (multipliers[slotOf(other)] > multipliers[slotOf(path)]) {
-                path = other;
-            }
-        }
-        const slot = slotOf(path);
+        const path = Array.from({ length: rows }, () => randomInt(2));
+        const slot = path.reduce<number>((sum, step) => sum + step, 0);
         const multiplier = multipliers[slot];
         return { path, slot, multiplier, payout: Math.floor(bet * multiplier) };
     });
@@ -212,12 +288,166 @@ casinoRouter.post("/plinko", async (request, response) => {
     }
 
     await Player.invalidate(userId);
+    await recordBets(
+        userId,
+        "plinko",
+        drops.map((drop) => ({ bet, payout: drop.payout })),
+    );
 
     response.json({
         drops,
         multipliers,
         totalBet,
         totalPayout,
+        balance: Number(result.rows[0].balance),
+    });
+});
+
+// Pass the Bills: a circle of players each put down BILLS_PER_PLAYER bills and pass them around with dice.
+
+const BILLS_PER_PLAYER = 3;
+const BILLS_MIN_PLAYERS = 3;
+const BILLS_MAX_PLAYERS = 8;
+// Indexed by players - BILLS_MIN_PLAYERS: 3 players (2 opponents) up to 8.
+const BILLS_MULTIPLIERS = [1, 1.25, 1.5, 1.75, 2, 4];
+const BILLS_MAX_TURNS = 2000;
+const BILLS_FACES = ["circle", "star", "left", "right"] as const;
+
+type BillsFace = (typeof BILLS_FACES)[number];
+
+interface BillsTurn {
+    seat: number;
+    dice: BillsFace[];
+    bills: number[];
+    center: number;
+}
+
+function simulateBills(players: number) {
+    const bills = Array<number>(players).fill(BILLS_PER_PLAYER);
+    let center = 0;
+    let inPlay = players * BILLS_PER_PLAYER;
+    let seat = randomInt(players);
+    const turns: BillsTurn[] = [];
+    const roll = (): BillsFace => BILLS_FACES[randomInt(BILLS_FACES.length)];
+
+    // Seat 0 is the player. Everyone with bills rolls up to 3 dice, one per bill.
+    while (inPlay > 1 && turns.length < BILLS_MAX_TURNS) {
+        const count = Math.min(BILLS_PER_PLAYER, bills[seat]);
+        if (count > 0) {
+            const dice: BillsFace[] = [];
+            for (let i = 0; i < count && inPlay > 1; i++) {
+                const face = roll();
+                dice.push(face);
+                if (face === "left" || face === "right") {
+                    const target =
+                        (seat + (face === "left" ? 1 : players - 1)) % players;
+                    bills[seat]--;
+                    bills[target]++;
+                } else if (face === "star") {
+                    bills[seat]--;
+                    center++;
+                    inPlay--;
+                }
+            }
+            turns.push({ seat, dice, bills: [...bills], center });
+        }
+        seat = (seat + 1) % players;
+    }
+
+    // The holder of the last bill must roll a circle. Left/right passes it on, a star is a re-roll.
+    let holder = bills.findIndex((count) => count > 0);
+    const finale: { seat: number; face: BillsFace }[] = [];
+    let winner = -1;
+    while (winner < 0) {
+        const face = finale.length >= BILLS_MAX_TURNS ? "circle" : roll();
+        finale.push({ seat: holder, face });
+        if (face === "circle") {
+            winner = holder;
+        } else if (face === "left") {
+            holder = (holder + 1) % players;
+        } else if (face === "right") {
+            holder = (holder + players - 1) % players;
+        }
+    }
+
+    return { turns, finale, winner, startBills: BILLS_PER_PLAYER };
+}
+
+casinoRouter.post("/bills", async (request, response) => {
+    const { bet, players }: Record<string, unknown> = request.body ?? {};
+    if (typeof bet !== "number" || !Number.isSafeInteger(bet) || bet < 1) {
+        response.status(400).json({ error: "Bet must be a whole number of at least 1" });
+        return;
+    }
+    if (
+        typeof players !== "number" ||
+        !Number.isInteger(players) ||
+        players < BILLS_MIN_PLAYERS ||
+        players > BILLS_MAX_PLAYERS
+    ) {
+        response.status(400).json({
+            error: `Players must be between ${BILLS_MIN_PLAYERS} and ${BILLS_MAX_PLAYERS}`,
+        });
+        return;
+    }
+
+    const stake = bet * BILLS_PER_PLAYER;
+    const pot = stake * players;
+    const multiplier = BILLS_MULTIPLIERS[players - BILLS_MIN_PLAYERS];
+    const winnings = Math.floor(pot * multiplier);
+    if (!Number.isSafeInteger(winnings)) {
+        response.status(400).json({ error: "Bet is too large" });
+        return;
+    }
+
+    const userId: string = response.locals.userId;
+    const game = simulateBills(players);
+    const payout = game.winner === 0 ? winnings : 0;
+
+    const nameRows = await getPool().query<{ name: string }>(
+        `SELECT data->>'name' AS name
+         FROM players
+         WHERE id <> $1 AND COALESCE(data->>'name', '') <> ''
+         ORDER BY random()
+         LIMIT $2`,
+        [userId, players - 1],
+    );
+    const names = ["You", ...nameRows.rows.map((row) => row.name)];
+    while (names.length < players) {
+        names.push(`Player ${names.length + 1}`);
+    }
+
+    const result = await getPool().query<{ balance: string }>(
+        `UPDATE players
+         SET data = jsonb_set(
+             data,
+             '{balance}',
+             to_jsonb((data->>'balance')::numeric + $2::numeric)
+         )
+         WHERE id = $1 AND (data->>'balance')::numeric >= $3::numeric
+         RETURNING data->>'balance' AS balance`,
+        [userId, payout - stake, stake],
+    );
+
+    if (result.rowCount === 0) {
+        const exists = await Player.exists(userId);
+        response
+            .status(exists ? 400 : 404)
+            .json({ error: exists ? "Insufficient balance" : "Player not found" });
+        return;
+    }
+
+    await Player.invalidate(userId);
+    await recordBets(userId, "bills", [{ bet: stake, payout }]);
+
+    response.json({
+        ...game,
+        names,
+        players,
+        stake,
+        pot,
+        multiplier,
+        payout,
         balance: Number(result.rows[0].balance),
     });
 });
@@ -241,34 +471,6 @@ const blackjackKey = (userId: string) => `blackjack:${userId}`;
 
 function drawCard(): Card {
     return { rank: RANKS[randomInt(RANKS.length)], suit: SUITS[randomInt(SUITS.length)] };
-}
-
-const isOwner = (userId: string) => !!process.env.OWNER_ID && userId === process.env.OWNER_ID;
-
-// Occasionally draws a second candidate and keeps the better one.
-function drawForPlayer(userId: string, hand: Card[]): Card {
-    const first = drawCard();
-    if (!isOwner(userId) || randomInt(100) >= 30) {
-        return first;
-    }
-    const second = drawCard();
-    const score = (card: Card) => {
-        const total = handValue([...hand, card]);
-        return total > 21 ? -total : total;
-    };
-    return score(second) > score(first) ? second : first;
-}
-
-function drawForDealer(userId: string, hand: Card[]): Card {
-    const first = drawCard();
-    if (!isOwner(userId) || randomInt(100) >= 25) {
-        return first;
-    }
-    const second = drawCard();
-    if (handValue([...hand, first]) > 21) {
-        return first;
-    }
-    return handValue([...hand, second]) > 21 ? second : first;
 }
 
 function handValue(cards: Card[]): number {
@@ -335,7 +537,7 @@ async function settleBlackjack(userId: string, state: BlackjackState, busted: bo
 
         if (!playerBlackjack) {
             while (handValue(state.dealer) < 17) {
-                state.dealer.push(drawForDealer(userId, state.dealer));
+                state.dealer.push(drawCard());
             }
         }
 
@@ -361,6 +563,7 @@ async function settleBlackjack(userId: string, state: BlackjackState, busted: bo
     }
 
     await getCache().del(blackjackKey(userId));
+    await recordBets(userId, "blackjack", [{ bet: state.bet, payout }]);
     const balance =
         payout > 0
             ? ((await adjustBalance(userId, payout, 0)) ?? (await currentBalance(userId)))
@@ -413,10 +616,9 @@ casinoRouter.post("/blackjack/start", async (request, response) => {
         return;
     }
 
-    const first = drawForPlayer(userId, []);
     const state: BlackjackState = {
         bet,
-        player: [first, drawForPlayer(userId, [first])],
+        player: [drawCard(), drawCard()],
         dealer: [drawCard(), drawCard()],
     };
 
@@ -458,13 +660,13 @@ casinoRouter.post("/blackjack/action", async (request, response) => {
             return;
         }
         state.bet *= 2;
-        state.player.push(drawForPlayer(userId, state.player));
+        state.player.push(drawCard());
         response.json(await settleBlackjack(userId, state, handValue(state.player) > 21));
         return;
     }
 
     if (action === "hit") {
-        state.player.push(drawForPlayer(userId, state.player));
+        state.player.push(drawCard());
         const total = handValue(state.player);
         if (total > 21) {
             response.json(await settleBlackjack(userId, state, true));

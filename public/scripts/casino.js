@@ -4,6 +4,7 @@ const balanceElement = $('#casinoBalance');
 const resultElement = $('#plinkoResult');
 const historyElement = $('#plinkoHistory');
 const dropButton = $('#plinkoDrop');
+const autoButton = $('#plinkoAuto');
 const betInput = $('#plinkoBet');
 const rowsInput = $('#plinkoRows');
 const ballsInput = $('#plinkoBalls');
@@ -13,6 +14,12 @@ const context = canvas.getContext('2d');
 
 const STEP_MS = 480;
 const MAX_STAGGER_MS = 4000;
+const speedInput = $('#plinkoSpeed');
+const speedValue = $('#plinkoSpeedValue');
+const autoIntervalMs = () => 1000 / Number(speedInput.value);
+speedInput.addEventListener('input', () => {
+  speedValue.textContent = speedInput.value;
+});
 
 let balance = 0;
 let risk = 'medium';
@@ -377,14 +384,70 @@ function addHistory(multiplier, payout, bet) {
   }
 }
 
-function playDrops(drops, bet, startingBalance) {
-  const g = geometry();
-  const stagger = Math.min(400, MAX_STAGGER_MS / drops.length);
-  const startedAt = performance.now();
-  let shown = startingBalance;
+let loopRunning = false;
 
-  activeBalls = drops.map((drop, index) => ({
+function frame(now) {
+  const g = geometry();
+
+  activeBalls.forEach(ball => {
+    if (ball.landed) {
+      return;
+    }
+    const elapsed = now - ball.start;
+    if (elapsed < 0) {
+      return;
+    }
+
+    ball.visible = true;
+    const step = Math.floor(elapsed / STEP_MS);
+    if (step !== ball.lastStep && step > 0 && step < ball.path.length) {
+      sound.peg();
+    }
+    ball.lastStep = step;
+    if (elapsed >= ball.path.length * STEP_MS) {
+      ball.landed = true;
+      ball.visible = false;
+      slotFlash[ball.slot] = now;
+      sound.land(ball.multiplier);
+      setBalance(balance + ball.payout);
+      addHistory(ball.multiplier, ball.payout, ball.bet);
+      return;
+    }
+
+    const position = positionBall(ball, g, elapsed);
+    ball.trail.push({ x: ball.x || position.x, y: ball.y || position.y });
+    if (ball.trail.length > 6) {
+      ball.trail.shift();
+    }
+    ball.x = position.x;
+    ball.y = position.y;
+  });
+
+  draw(now);
+
+  waiters = waiters.filter(waiter => {
+    if (waiter.batch.every(ball => ball.landed)) {
+      waiter.resolve();
+      return false;
+    }
+    return true;
+  });
+  activeBalls = activeBalls.filter(ball => !ball.landed);
+
+  if (activeBalls.length > 0) {
+    requestAnimationFrame(frame);
+  } else {
+    loopRunning = false;
+  }
+}
+
+let waiters = [];
+
+function playDrops(drops, bet, stagger = Math.min(400, MAX_STAGGER_MS / drops.length)) {
+  const startedAt = performance.now();
+  const batch = drops.map((drop, index) => ({
     ...drop,
+    bet,
     start: startedAt + index * stagger,
     visible: false,
     landed: false,
@@ -392,66 +455,21 @@ function playDrops(drops, bet, startingBalance) {
     x: 0,
     y: 0
   }));
+  activeBalls.push(...batch);
 
   return new Promise(resolve => {
-    function frame(now) {
-      let remaining = 0;
-
-      activeBalls.forEach(ball => {
-        if (ball.landed) {
-          return;
-        }
-        const elapsed = now - ball.start;
-        if (elapsed < 0) {
-          remaining++;
-          return;
-        }
-
-        ball.visible = true;
-        const step = Math.floor(elapsed / STEP_MS);
-        if (step !== ball.lastStep && step > 0 && step < ball.path.length) {
-          sound.peg();
-        }
-        ball.lastStep = step;
-        if (elapsed >= ball.path.length * STEP_MS) {
-          ball.landed = true;
-          ball.visible = false;
-          slotFlash[ball.slot] = now;
-          sound.land(ball.multiplier);
-          shown += ball.payout;
-          setBalance(shown);
-          addHistory(ball.multiplier, ball.payout, bet);
-          return;
-        }
-
-        remaining++;
-        const position = positionBall(ball, g, elapsed);
-        ball.trail.push({ x: ball.x || position.x, y: ball.y || position.y });
-        if (ball.trail.length > 6) {
-          ball.trail.shift();
-        }
-        ball.x = position.x;
-        ball.y = position.y;
-      });
-
-      draw(now);
-
-      if (remaining > 0) {
-        requestAnimationFrame(frame);
-      } else {
-        resolve();
-      }
+    waiters.push({ batch, resolve });
+    if (!loopRunning) {
+      loopRunning = true;
+      requestAnimationFrame(frame);
     }
-
-    requestAnimationFrame(frame);
   });
 }
-
 function setControlsDisabled(disabled) {
   document
     .querySelectorAll('.plinko-controls button, .plinko-controls input')
     .forEach(control => {
-      control.disabled = disabled;
+      control.disabled = disabled && control !== autoButton && control !== speedInput;
     });
 }
 
@@ -465,17 +483,25 @@ async function refreshBalance() {
   }
 }
 
-async function drop() {
+let autoRunning = false;
+
+async function drop(auto = false) {
   const bet = Number(betInput.value);
-  const balls = Number(ballsInput.value);
+  const balls = auto === true ? 1 : Number(ballsInput.value);
+  let ok = false;
 
   if (!Number.isSafeInteger(bet) || bet < 1) {
     showMessage('Enter a whole number bet of at least 1.', 'loss');
-    return;
+    return false;
   }
   if (bet * balls > balance) {
-    showMessage('You do not have enough balance for that total bet.', 'loss');
-    return;
+    showMessage(
+      auto === true
+        ? 'Auto drop stopped: not enough balance.'
+        : 'You do not have enough balance for that total bet.',
+      'loss'
+    );
+    return false;
   }
 
   sound.drop();
@@ -491,9 +517,8 @@ async function drop() {
     });
 
     multipliers = result.multipliers;
-    const afterBet = balance - result.totalBet;
-    setBalance(afterBet);
-    await playDrops(result.drops, bet, afterBet);
+    setBalance(balance - result.totalBet);
+    await playDrops(result.drops, bet);
     setBalance(result.balance);
 
     const net = result.totalPayout - result.totalBet;
@@ -505,16 +530,82 @@ async function drop() {
     } else {
       showMessage(`${summary} — you lost ${format(-net)}.`, 'loss');
     }
+    ok = true;
   } catch (error) {
     showMessage(error.message, 'loss');
     await refreshBalance();
   } finally {
-    activeBalls = [];
-    setControlsDisabled(false);
+    setControlsDisabled(autoRunning);
     draw();
   }
+  return ok;
 }
 
+async function toggleAuto() {
+  if (autoRunning) {
+    autoRunning = false;
+    autoButton.textContent = 'Stopping…';
+    return;
+  }
+
+  const bet = Number(betInput.value);
+  if (!Number.isSafeInteger(bet) || bet < 1) {
+    showMessage('Enter a whole number bet of at least 1.', 'loss');
+    return;
+  }
+
+  autoRunning = true;
+  autoButton.textContent = 'Stop auto';
+  setControlsDisabled(true);
+  showMessage('');
+
+  const pending = [];
+  let net = 0;
+  let count = 0;
+  let stopReason = '';
+
+  // Balls are released at the same rate as a 50-ball drop, without waiting for earlier ones to land.
+  while (autoRunning) {
+    if (bet > balance) {
+      stopReason = 'Auto drop stopped: not enough balance.';
+      break;
+    }
+    setBalance(balance - bet);
+    try {
+      const result = await api('/plinko', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bet, balls: 1, rows: currentRows(), risk })
+      });
+      multipliers = result.multipliers;
+      sound.drop();
+      net += result.totalPayout - result.totalBet;
+      count++;
+      pending.push(playDrops(result.drops, bet));
+    } catch (error) {
+      setBalance(balance + bet);
+      stopReason = error.message;
+      break;
+    }
+    await new Promise(resolve => setTimeout(resolve, autoIntervalMs()));
+  }
+
+  await Promise.all(pending);
+  await refreshBalance();
+  autoRunning = false;
+  autoButton.textContent = 'Auto drop';
+  setControlsDisabled(false);
+
+  const summary = `Auto drop: ${count} ball${count === 1 ? '' : 's'}`;
+  if (stopReason) {
+    showMessage(`${stopReason} ${summary}, net ${net >= 0 ? '+' : '-'}${format(Math.abs(net))}.`, 'loss');
+  } else {
+    showMessage(
+      `${summary}, net ${net >= 0 ? '+' : '-'}${format(Math.abs(net))}.`,
+      net > 0 ? 'win' : net < 0 ? 'loss' : ''
+    );
+  }
+}
 async function loadMultipliers() {
   const token = ++loadToken;
   try {
@@ -529,17 +620,103 @@ async function loadMultipliers() {
   }
 }
 
-function selectGame(name) {
+function selectGame(name, selected) {
   document.querySelectorAll('.game-card').forEach(card => {
-    card.setAttribute('aria-selected', String(card.dataset.game === name));
+    card.setAttribute('aria-selected', String(selected ? card === selected : card.dataset.game === name));
   });
   document.querySelectorAll('.game-panel').forEach(panel => {
     panel.classList.toggle('hidden', panel.id !== `game-${name}`);
   });
+  if (name === 'leaderboard') {
+    loadLeaderboard();
+  }
 }
 
+let leaderboardSort = 'net';
+
+const signed = value => `${value >= 0 ? '+' : '-'}${format(Math.abs(value))}`;
+const tone = value => (value > 0 ? 'win' : value < 0 ? 'loss' : '');
+
+function cell(text, className) {
+  const td = document.createElement('td');
+  td.textContent = text;
+  if (className) {
+    td.className = className;
+  }
+  return td;
+}
+
+function fillRows(body, rows, empty) {
+  body.replaceChildren();
+  if (rows.length === 0) {
+    const tr = document.createElement('tr');
+    const td = cell(empty, 'muted-note');
+    td.colSpan = 6;
+    tr.append(td);
+    body.append(tr);
+    return;
+  }
+  rows.forEach(cells => {
+    const tr = document.createElement('tr');
+    tr.append(...cells);
+    body.append(tr);
+  });
+}
+
+async function loadLeaderboard() {
+  try {
+    const data = await api(`/stats?sort=${leaderboardSort}`);
+    const { house } = data;
+
+    // The house wins what players lose, so its balance is the players' combined loss.
+    const net = $('#houseNet');
+    net.textContent = signed(house.net);
+    net.className = tone(house.net);
+    $('#houseNote').textContent = house.net >= 0 ? 'House is up' : 'House is down';
+    $('#houseWagered').textContent = format(house.wagered);
+    $('#housePaid').textContent = format(house.paidOut);
+    $('#houseRounds').textContent = house.rounds.toLocaleString();
+
+    fillRows(
+      $('#lbPlayers'),
+      data.leaders.map((row, index) => [
+        cell(index + 1),
+        cell(row.name),
+        cell(signed(row.net), tone(row.net)),
+        cell(format(row.wagered)),
+        cell(row.rounds.toLocaleString())
+      ]),
+      'No bets placed yet.'
+    );
+    fillRows(
+      $('#lbWins'),
+      data.biggestWins.map((row, index) => [
+        cell(index + 1),
+        cell(row.name),
+        cell(row.game === 'plinko' ? 'Plinko' : row.game === 'bills' ? 'Pass the Bills' : row.game === 'poker' ? 'Poker' : 'Blackjack'),
+        cell(format(row.bet)),
+        cell(format(row.payout), 'win'),
+        cell(`${formatMultiplier(row.multiplier)}×`)
+      ]),
+      'No wins yet.'
+    );
+  } catch (error) {
+    showMessage(error.message, 'loss');
+  }
+}
+
+document.querySelectorAll('[data-lbsort]').forEach(button => {
+  button.addEventListener('click', () => {
+    leaderboardSort = button.dataset.lbsort;
+    document.querySelectorAll('[data-lbsort]').forEach(other => {
+      other.setAttribute('aria-pressed', String(other === button));
+    });
+    loadLeaderboard();
+  });
+});
+
 document.querySelectorAll('.game-card').forEach(card => {
-  card.addEventListener('click', () => selectGame(card.dataset.game));
+  card.addEventListener('click', () => selectGame(card.dataset.game, card));
 });
 
 document.querySelectorAll('[data-risk]').forEach(button => {
@@ -572,7 +749,8 @@ rowsInput.addEventListener('input', () => {
 });
 ballsInput.addEventListener('input', updateTotals);
 betInput.addEventListener('input', updateTotals);
-dropButton.addEventListener('click', drop);
+dropButton.addEventListener('click', () => drop());
+autoButton.addEventListener('click', toggleAuto);
 
 // Blackjack
 (() => {
@@ -754,6 +932,234 @@ dropButton.addEventListener('click', drop);
     }
   };
 })();
+
+// Pass the Bills
+(() => {
+  const betInput = $('#billsBet');
+  const playersInput = $('#billsPlayers');
+  const playButton = $('#billsPlay');
+  const seatsElement = $('#billsSeats');
+  const diceElement = $('#billsDice');
+  const statusElement = $('#billsStatus');
+  const resultElement = $('#billsResult');
+  const potElement = $('#billsPot');
+  const autoInput = $('#billsAuto');
+  const rollButton = $('#billsRoll');
+  let names = [];
+  const TURN_MS = 700;
+  const MIN_TURN_MS = 90;
+  // Each step is a bit quicker than the last so long games don't drag.
+  const stepDelay = step => Math.max(MIN_TURN_MS, TURN_MS * Math.pow(0.93, step));
+  const FACES = { circle: '⚪', star: '⭐', left: '⬅️', right: '➡️' };
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  const seatName = seat => names[seat] ?? (seat === 0 ? 'You' : `Player ${seat + 1}`);
+
+  function renderSeats(count, bills, active = -1, winner = -1) {
+    seatsElement.innerHTML = '';
+    seatsElement.style.setProperty('--seats', count);
+    for (let seat = 0; seat < count; seat++) {
+      const element = document.createElement('div');
+      element.className = 'bills-seat';
+      element.classList.toggle('active', seat === active);
+      element.classList.toggle('winner', seat === winner);
+      element.classList.toggle('you', seat === 0);
+      const name = document.createElement('span');
+      name.className = 'eyebrow';
+      name.textContent = seatName(seat);
+      const stack = document.createElement('strong');
+      stack.textContent = bills[seat] > 0 ? '💵'.repeat(bills[seat]) : '—';
+      element.append(name, stack);
+      seatsElement.append(element);
+    }
+  }
+
+  function showDice(faces) {
+    diceElement.textContent = faces.map(face => FACES[face]).join(' ');
+  }
+
+  function setMessage(text, kind = '') {
+    resultElement.textContent = text;
+    resultElement.className = `plinko-result ${kind}`;
+  }
+
+  function waitForRoll() {
+    if (autoInput.checked) {
+      return sleep(400);
+    }
+    statusElement.textContent += ' — your turn!';
+    rollButton.classList.remove('hidden');
+    return new Promise(resolve => {
+      const finish = () => {
+        rollButton.removeEventListener('click', finish);
+        autoInput.removeEventListener('change', finish);
+        rollButton.classList.add('hidden');
+        resolve();
+      };
+      rollButton.addEventListener('click', finish);
+      autoInput.addEventListener('change', finish);
+    });
+  }
+
+  const MULTIPLIERS = [1, 1.25, 1.5, 1.75, 2, 4];
+
+  function updatePreview() {
+    const bet = Math.max(0, Number(betInput.value) || 0);
+    const players = Number(playersInput.value);
+    const multiplier = MULTIPLIERS[players - 3];
+    const stake = bet * 3;
+    $('#billsPlayersValue').textContent = players;
+    $('#billsTotal').textContent = format(stake);
+    $('#billsMultiplier').textContent = `${multiplier}×`;
+    $('#billsPossible').textContent = format(Math.floor(stake * players * multiplier));
+  }
+
+  async function play() {
+    const bet = Number(betInput.value);
+    const players = Number(playersInput.value);
+    if (!Number.isInteger(bet) || bet < 1) {
+      setMessage('Bill value must be a whole number of at least 1', 'loss');
+      return;
+    }
+    playButton.disabled = true;
+    setMessage('');
+    statusElement.textContent = '';
+    try {
+      const game = await api('/bills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bet, players })
+      });
+      names = game.names;
+      sound.chip();
+      setBalance(game.balance - game.payout);
+      potElement.textContent = format(game.pot);
+      let bills = Array(players).fill(game.startBills);
+      renderSeats(players, bills);
+      await sleep(400);
+
+      // When the player loses, stop animating once they can no longer be involved.
+      let lastInvolved = Infinity;
+      if (game.winner !== 0) {
+        const finaleIndex = game.finale.map(roll => roll.seat).lastIndexOf(0);
+        if (finaleIndex >= 0) {
+          lastInvolved = game.turns.length + finaleIndex;
+        } else {
+          let idx = -1;
+          game.turns.forEach((turn, i) => {
+            if (turn.seat === 0 || turn.bills[0] > 0) {
+              idx = i;
+            }
+          });
+          lastInvolved = idx;
+        }
+      }
+      let step = 0;
+      let skipped = false;
+
+      for (const turn of game.turns) {
+        if (step > lastInvolved) {
+          skipped = true;
+          break;
+        }
+        const delay = stepDelay(step++);
+        renderSeats(players, bills, turn.seat);
+        statusElement.textContent = `${seatName(turn.seat)} rolls`;
+        if (turn.seat === 0) {
+          showDice([]);
+          await waitForRoll();
+        }
+        showDice(turn.dice);
+        sound.card();
+        await sleep(delay);
+        bills = turn.bills;
+        renderSeats(players, bills, turn.seat);
+        await sleep(delay / 2);
+      }
+
+      const last = game.finale.at(-1);
+      if (!skipped) {
+        statusElement.textContent = 'Last bill! Roll a circle to take the pot';
+        for (const roll of game.finale) {
+          if (step > lastInvolved) {
+            skipped = true;
+            break;
+          }
+          const holders = Array(players).fill(0);
+          holders[roll.seat] = 1;
+          renderSeats(players, holders, roll.seat);
+          if (roll.seat === 0) {
+            showDice([]);
+            statusElement.textContent = 'Last bill is yours! Roll a circle to take the pot';
+            await waitForRoll();
+          }
+          showDice([roll.face]);
+          sound.card();
+          await sleep(stepDelay(step++));
+        }
+      }
+      if (skipped) {
+        statusElement.textContent = 'You are out, skipping to the end…';
+        await sleep(600);
+      }
+
+      const holders = Array(players).fill(0);
+      holders[game.winner] = 1;
+      renderSeats(players, holders, -1, game.winner);
+      statusElement.textContent = `${seatName(game.winner)} rolled ${FACES[last.face]} and takes the pot`;
+      setBalance(game.balance);
+      if (game.winner === 0) {
+        sound.win(true);
+        setMessage(`You won ${format(game.payout)} (net ${signed(game.payout - game.stake)})`, 'win');
+      } else {
+        sound.lose();
+        setMessage(`${seatName(game.winner)} took the pot. You lost ${format(game.stake)}`, 'loss');
+      }
+    } catch (error) {
+      setMessage(error.message, 'loss');
+    } finally {
+      playButton.disabled = false;
+    }
+  }
+
+  playersInput.addEventListener('input', () => {
+    updatePreview();
+    renderSeats(Number(playersInput.value), Array(Number(playersInput.value)).fill(3));
+  });
+  betInput.addEventListener('input', updatePreview);
+  playButton.addEventListener('click', play);
+  document.querySelectorAll('[data-billsbet]').forEach(button => {
+    button.addEventListener('click', () => {
+      const current = Number(betInput.value) || 1;
+      const next = {
+        half: Math.floor(current / 2),
+        double: current * 2,
+        max: Math.floor(balance / 3)
+      }[button.dataset.billsbet];
+      betInput.value = Math.max(1, next);
+      updatePreview();
+    });
+  });
+  updatePreview();
+  renderSeats(6, Array(6).fill(3));
+})();
+
+// Bets are whole numbers only: block decimal characters and strip any pasted ones.
+['#plinkoBet', '#bjBet', '#billsBet'].forEach(selector => {
+  const input = $(selector);
+  input.addEventListener('keydown', event => {
+    if (['.', ',', 'e', 'E', '+', '-'].includes(event.key)) {
+      event.preventDefault();
+    }
+  });
+  input.addEventListener('input', () => {
+    const digits = input.value.replace(/\D/g, '');
+    if (digits !== input.value) {
+      input.value = digits;
+      input.dispatchEvent(new window.Event('input'));
+    }
+  });
+});
 
 authReady.then(async auth => {
   if (!auth.user) {
