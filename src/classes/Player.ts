@@ -1,6 +1,7 @@
 import type { Client } from "discord.js";
 import { getCache, getPool } from "../database.js";
 import { PrestigeBuff } from "../resources/prestigeBuffs.js";
+import { EffectOperation, getSkill, Skill, SkillEffect } from "../resources/skills.js";
 
 export default class Player {
     public name: string;
@@ -67,12 +68,15 @@ export default class Player {
     }
 
     public assignRandomExperienceAndBalance(): ExperienceResult {
-        const xpResult = this.addExperience(
-            Math.floor((Math.random() * 26 + 15) * this.experienceMultiplier),
-        );
-        this.addBalance(
-            Math.floor((Math.random() * 101 + 50) * this.balanceMultiplier),
-        );
+        const baseExperience = Math.floor(Math.random() * 26 + 15);
+        const baseBalance = Math.floor(Math.random() * 101 + 50);
+
+        const experience = this.applySkills(baseExperience, SkillEffect.Experience);
+        const balance = this.applySkills(baseBalance, SkillEffect.Balance);
+
+        const xpResult = this.addExperience(experience);
+        this.addBalance(balance);
+
         return xpResult;
     }
 
@@ -176,6 +180,51 @@ export default class Player {
         this.data.temp.prestigeBuffs = [];
         return this;
     }
+
+    public get skills(): string[] {
+        return this.data.skills;
+    }
+
+    public get skillPoints(): number {
+        return this.data.skillPoints;
+    }
+
+    public set skillPoints(value: number) {
+        this.assertNonNegativeAmount(value);
+        this.data.skillPoints = value;
+    }
+
+    public set skills(value: string[]) {
+        this.data.skills = value;
+    }
+
+    public getSkill(skillId: string): Skill {
+        const skill = getSkill(skillId);
+        if (!skill) {
+            throw new Error(`Skill with ID ${skillId} not found`);
+        }
+        return skill;
+    }
+
+    private applySkills(amount: number, effect: SkillEffect): number {
+        const unlocked = this.skills
+            .map(getSkill)
+            .filter((skill): skill is Skill => skill !== undefined && skill.effect === effect);
+
+        let result = amount;
+
+        for (const skill of unlocked.filter((skill) => skill.operation === EffectOperation.Add)) {
+            result = skill.skill(result);
+        }
+
+        for (const skill of unlocked.filter((skill) => skill.operation === EffectOperation.Multiply)) {
+            result = skill.skill(result);
+        }
+
+        return result;
+    }
+
+    // Do not modify below this line
 
     public toJSON(): PlayerResponse {
         return {
@@ -373,6 +422,8 @@ export interface Data {
     prestige: number;
     experienceMultiplier: number;
     balanceMultiplier: number;
+    skills: string[];
+    skillPoints: number;
     temp: TemporaryData;
 }
 
@@ -392,6 +443,8 @@ export const defaultPlayerData: Data = {
     prestige: 0,
     experienceMultiplier: 1.00,
     balanceMultiplier: 1.00,
+    skills: [],
+    skillPoints: 0,
     temp: {}
 };
 
