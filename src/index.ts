@@ -15,6 +15,7 @@ import {
 
 import {
     testConnections,
+    initDatabase,
     initRedis,
     disconnect,
 } from "./database.js";
@@ -95,6 +96,7 @@ async function start(): Promise<void> {
     try {
         await initRedis();
         await testConnections();
+        await initDatabase();
 
         await loadCommands();
         await loadEvents();

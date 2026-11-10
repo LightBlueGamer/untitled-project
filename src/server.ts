@@ -34,10 +34,49 @@ if (configuredRedirectUri) {
     app.get(callbackPath, discordOAuthCallback)
 }
 
-// Redirects to the leaderboard when logged out, also for the direct file URL.
-app.get(['/casino', '/casino.html'], requireLogin, (_request, response) => {
+app.get('/casino.html', (request, response) => {
+    response.redirect(301, `/casino${request.url.slice(request.path.length)}`)
+})
+
+app.get('/casino', requireLogin, (_request, response) => {
     response.setHeader('Cache-Control', 'no-store')
     response.sendFile(join(projectRoot, 'public', 'casino.html'))
+})
+
+app.get('/skills.html', (request, response) => {
+    response.redirect(301, `/skills${request.url.slice(request.path.length)}`)
+})
+
+app.get('/skills', (request, response, next) => {
+    if (typeof request.query.player === 'string' && request.query.player.length > 0) return next()
+    return requireLogin(request, response, next)
+}, (_request, response) => {
+    response.setHeader('Cache-Control', 'no-store')
+    response.sendFile(join(projectRoot, 'public', 'skills.html'))
+})
+
+app.get('/companions.html', (request, response) => {
+    response.redirect(301, `/companions${request.url.slice(request.path.length)}`)
+})
+
+app.get('/companions', (_request, response) => {
+    response.sendFile(join(projectRoot, 'public', 'companions.html'))
+})
+
+app.get('/companion.html', (request, response) => {
+    response.redirect(301, `/companion${request.url.slice(request.path.length)}`)
+})
+
+app.get('/companion', (_request, response) => {
+    response.sendFile(join(projectRoot, 'public', 'companion.html'))
+})
+
+app.get('/wiki.html', (request, response) => {
+    response.redirect(301, `/wiki${request.url.slice(request.path.length)}`)
+})
+
+app.get('/wiki', (_request, response) => {
+    response.sendFile(join(projectRoot, 'public', 'wiki.html'))
 })
 
 app.use('/scripts', express.static(join(projectRoot, 'public', 'scripts')))

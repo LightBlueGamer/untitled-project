@@ -3,6 +3,7 @@ const $ = s => document.querySelector(s);
 let allPlayers = [];
 let currentPage = 1;
 let currentUser = null;
+let profileId = null;
 
 let PLAYERS_PER_PAGE = 10;
 
@@ -88,7 +89,16 @@ function renderPlayers(adjustPageSize = true) {
       const id = String(player.id ?? '');
 
       return name.includes(query) || id.includes(query);
-    })
+    });
+
+  const currentUserIndex = currentUser
+    ? filteredPlayers.findIndex(
+      player => String(player.id) === String(currentUser.id)
+    )
+    : -1;
+  if (currentUserIndex > 0) {
+    filteredPlayers.unshift(filteredPlayers.splice(currentUserIndex, 1)[0]);
+  }
 
   const totalPages = Math.max(
     1,
@@ -239,10 +249,14 @@ function stat(label, value, wide = false) {
 }
 
 async function loadProfile(id) {
+  profileId = id;
+  $('#openSkillTree').classList.add('hidden');
+  $('#profileCompanions').textContent = 'Loading companions…';
   try {
     const r = await fetch(`${API_BASE}/${encodeURIComponent(id)}`);
     if (!r.ok) throw new Error(r.status === 404 ? 'Player not found' : `Request failed (${r.status})`);
     const p = await r.json();
+    if (profileId !== id) return;
     $('#profileName').textContent = p.name || 'Unknown adventurer';
     $('#avatar').textContent = (p.name || '?').charAt(0).toUpperCase();
     const globalRank = [...allPlayers]
@@ -252,9 +266,37 @@ async function loadProfile(id) {
     $('#profileRank').textContent = globalRank
       ? `Leaderboard rank #${globalRank}`
       : 'Unranked';
-    $('#statGrid').innerHTML = stat('Prestige', p.prestige) + stat('Level', p.level) + stat('Experience', `${p.experience}`) + stat('Balance', `$${Number(p.balance ?? 0).toLocaleString()}`) + stat('Experience multiplier', `${p.experienceMultiplier ?? 1}×`) + stat('Balance multiplier', `${p.balanceMultiplier ?? 1}×`);
+    if (profileId !== id) return;
+    $('#statGrid').innerHTML = stat('Prestige', p.prestige) + stat('Level', p.level) + stat('Experience', `${p.experience}`) + stat('Balance', `$${Number(p.balance ?? 0).toLocaleString()}`) + stat('Experience multiplier', `${p.experienceMultiplier ?? 1}×`) + stat('Balance multiplier', `${p.balanceMultiplier ?? 1}×`) + stat('Prestige bonus XP', `+${p.prestigeExperienceFlat ?? 0}`) + stat('Prestige bonus money', `+$${p.prestigeBalanceFlat ?? 0}`) + stat('Prestige appearance multiplier', `${Number(p.prestigeCompanionSpawnMultiplier ?? 1).toLocaleString()}×`) + stat('Prestige rarity multiplier', `${Number(p.prestigeCompanionRarityMultiplier ?? 1).toLocaleString()}×`) + stat('Companion slots', p.companionSlots ?? 1) + stat('Skill points', p.skillPoints ?? 0);
+    const ownProfile = currentUser?.id === p.id;
+    $('#openSkillTree').href = ownProfile ? '/skills' : `/skills?player=${encodeURIComponent(p.id)}`;
+    $('#openSkillTree').textContent = ownProfile ? 'Open skill tree' : 'View skill tree';
+    $('#openSkillTree').classList.remove('hidden');
+    await loadProfileCompanions(id);
   } catch (e) {
-    $('#statGrid').innerHTML = `<div class="error wide">${esc(e.message)}</div>`;
+    if (profileId === id) {
+      $('#statGrid').innerHTML = `<div class="error wide">${esc(e.message)}</div>`;
+      $('#profileCompanions').textContent = 'Could not load companions because the profile could not be loaded.';
+    }
+  }
+}
+
+async function loadProfileCompanions(id) {
+  try {
+    const response = await fetch(`/api/companions/player/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    const data = await response.json();
+    if (profileId !== id) return;
+    $('#profileCompanions').innerHTML = data.companions.length
+      ? `<ul class="profile-companion-list">${data.companions.map(companion => {
+        const name = esc(companion.name ?? `${companion.key} (retired)`);
+        const label = companion.name
+          ? `<a href="/companion?key=${encodeURIComponent(companion.key)}">${name}</a>` : name;
+        return `<li>${label}${companion.rarity ? ` · ${esc(companion.rarity)}` : ''} · ${fmt(companion.quantity)} owned${companion.equipped ? ' · Equipped' : ''}</li>`;
+      }).join('')}</ul>`
+      : '<p>No companions yet.</p>';
+  } catch (error) {
+    if (profileId === id) $('#profileCompanions').textContent = `Could not load companions. ${error.message}`;
   }
 }
 
@@ -295,9 +337,8 @@ function jumpToCurrentPlayer() {
   }
 
   $('#search').value = '';
-  const sortedPlayers = [...allPlayers].sort(comparePlayers);
-  const playerIndex = sortedPlayers.findIndex(
-    player => String(player.id) === currentUser.id
+  const playerIndex = allPlayers.findIndex(
+    player => String(player.id) === String(currentUser.id)
   );
 
   if (playerIndex === -1) {
@@ -306,7 +347,7 @@ function jumpToCurrentPlayer() {
     return;
   }
 
-  currentPage = Math.floor(playerIndex / PLAYERS_PER_PAGE) + 1;
+  currentPage = 1;
   showLeaderboard();
   renderPlayers();
   document

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Companion Wiki | Prestigious Ledger</title>
+    <link rel="stylesheet" href="/styles/main.css">
+  </head>
+  <body>
+    <div class="wrap companion-wrap">
+      <header id="siteHeader"></header>
+      <main>
+        <div class="hero">
+          <div><div class="eyebrow">Creature records</div><h1>Companion wiki</h1></div>
+          <a class="btn" href="/companions">← Back to circulation</a>
+        </div>
+        <div class="panel companion-wiki">
+          <p id="wikiStatus" class="status" role="status" aria-live="polite">Loading companion…</p>
+          <article id="wikiDetails" class="hidden">
+            <h2 id="wikiName"></h2>
+            <p id="wikiRarity"></p>
+            <p id="wikiDescription"></p>
+            <h3>Stats</h3>
+            <dl id="wikiStats" class="companion-stats"></dl>
+            <h3>Encounter odds</h3>
+            <dl class="companion-stats">
+              <div><dt>In circulation</dt><dd id="wikiCount"></dd></div>
+              <div><dt>Adjusted weight</dt><dd id="wikiWeight"></dd></div>
+              <div><dt>Chance when a companion appears</dt><dd id="wikiChance"></dd></div>
+            </dl>
+            <p class="status">Odds are approximate and based on current circulation, without an equipped companion bonus. Actual odds can be affected by the spawning player's equipped companion.</p>
+          </article>
+          <button id="wikiRetry" class="btn hidden" type="button">Retry</button>
+        </div>
+      </main>
+    </div>
+    <script src="/scripts/nav.js"></script>
+    <script src="/scripts/companion-wiki.js"></script>
+  </body>
+</html>

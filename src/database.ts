@@ -2,6 +2,7 @@ import { Pool } from "pg";
 import { createClient, RedisClientType } from "redis";
 import "dotenv/config";
 import type { Data } from "./classes/Player.js";
+import { initializeCompanionStorage } from "./companionStorage.js";
 
 const databaseUrl = process.env.POSTGRES_URL;
 const redisUrl = process.env.REDIS_URL;
@@ -26,13 +27,17 @@ export const pool = new Pool({
 });
 
 export async function initDatabase(): Promise<void> {
-    await pool.query(`
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(1097823941)");
+        await client.query(`
         CREATE TABLE IF NOT EXISTS players (
             id TEXT PRIMARY KEY,
             data JSONB NOT NULL DEFAULT '{}'::jsonb
         )
     `);
-    await pool.query(`
+        await client.query(`
         CREATE TABLE IF NOT EXISTS casino_bets (
             id BIGSERIAL PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -42,15 +47,30 @@ export async function initDatabase(): Promise<void> {
             created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
     `);
-    await pool.query(
+        await client.query(
         `CREATE INDEX IF NOT EXISTS casino_bets_user_idx ON casino_bets (user_id)`,
     );
-    await pool.query(`
+        await client.query(`
         CREATE TABLE IF NOT EXISTS casino_lobbies (
             id TEXT PRIMARY KEY,
             data JSONB NOT NULL
         )
     `);
+        await client.query(`
+        CREATE TABLE IF NOT EXISTS debug_settings (
+            topic TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            PRIMARY KEY (topic, scope)
+        )
+    `);
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+    await initializeCompanionStorage();
 }
 
 export const redisClient: RedisClientType = createClient({

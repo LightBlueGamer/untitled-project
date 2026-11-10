@@ -1,10 +1,16 @@
 import { Client, ActivityType } from "discord.js";
+import { restoreCompanionEncounters } from "../companionEncounters.js";
 
 export default {
     name: "clientReady",
     once: true,
     async execute(client: Client) {
         if (!client.user) return console.error(`No client user was found.`);
+        try {
+            await restoreCompanionEncounters(client);
+        } catch (error) {
+            console.error("Failed to restore companion encounters:", error);
+        }
 
         setInterval(() => {
             client.user?.setPresence({

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Skill Tree | Prestigious Ledger</title>
+    <link rel="stylesheet" href="/styles/main.css">
+  </head>
+  <body>
+    <div class="wrap">
+      <header id="siteHeader"></header>
+      <main>
+        <div class="hero">
+          <div>
+            <div class="eyebrow">Character progression</div>
+            <h1>Skill tree</h1>
+          </div>
+          <a id="skillBackProfile" class="btn" href="/?view=profile">← Back to profile</a>
+        </div>
+        <section class="panel skill-tree" aria-label="Skill tree">
+          <div class="skill-tree-heading">
+            <div>
+              <span id="skillTreeOwner" class="eyebrow">Your progression</span>
+              <p id="skillPoints"></p>
+              <p id="skillTreeInstructions">Hover over a skill to see its effect; select it to unlock it. Gain one skill point per level before skill bonuses.</p>
+              <p id="skillTreeLegend">Glowing nodes are unlocked; colored outlines are available; grey nodes are locked or unaffordable.</p>
+              <p>Base skills line up in the center and branch outward. Hover, focus or select a skill to highlight its full prerequisite path.</p>
+              <p>Experience skills are green, income skills are gold, and skill point skills are red.</p>
+              <p>Drag the tree to explore and use the mouse wheel or zoom buttons to zoom. On a keyboard, focus the tree and use the arrow keys, or tab through skills.</p>
+            </div>
+            <p class="skill-reset-note">Prestiging resets all skills and unspent points.</p>
+          </div>
+          <div id="skillTreeStatus" class="skill-tree-status" role="status" aria-live="polite"></div>
+          <button id="retrySkillTree" class="btn hidden" type="button">Retry</button>
+          <div class="skill-zoom-controls" role="group" aria-label="Skill tree zoom">
+            <button id="skillZoomOut" class="btn" type="button" aria-label="Zoom out" disabled>−</button>
+            <output id="skillZoomLevel" aria-live="polite">100%</output>
+            <button id="skillZoomIn" class="btn" type="button" aria-label="Zoom in" disabled>+</button>
+            <button id="skillZoomReset" class="btn" type="button" disabled>Reset zoom</button>
+          </div>
+          <div id="skillTreeViewport" class="skill-tree-viewport" tabindex="0" role="region" aria-label="Skill tree. Drag or use arrow keys to explore.">
+            <div id="skillTree" aria-label="Skill branches"></div>
+          </div>
+          <div id="skillTooltip" class="skill-tooltip hidden" role="tooltip"></div>
+          <section id="skillDetails" class="skill-details hidden" aria-label="Selected skill"></section>
+        </section>
+      </main>
+    </div>
+    <script src="/scripts/nav.js"></script>
+    <script src="/scripts/skills.js"></script>
+  </body>
+</html>

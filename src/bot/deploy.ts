@@ -1,10 +1,18 @@
+import "dotenv/config";
 import { Collection, REST, Routes } from "discord.js";
-import { commandFiles } from "../index.js";
-import { Command } from "../classes/Command.js";
+import { readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Command } from "../classes/Command.js";
 
-const token = process.env.DISCORD_TOKEN!;
-const clientId = process.env.DISCORD_CLIENT_ID!;
-const supportId = process.env.DISCORD_SERVER_ID!;
+const token = process.env.DISCORD_TOKEN;
+const clientId = process.env.DISCORD_CLIENT_ID;
+const supportId = process.env.DISCORD_SERVER_ID;
+if (!token || !clientId || !supportId) {
+    throw new Error("DISCORD_TOKEN, DISCORD_CLIENT_ID and DISCORD_SERVER_ID are required to register commands");
+}
+const commandFiles = readdirSync(join(dirname(fileURLToPath(import.meta.url)), "commands"))
+    .filter(file => file.endsWith(".js"));
 const rest = new REST({ version: "10" }).setToken(token);
 const commands = new Collection<Command.Data.Name, Command>();
 const devCommands = new Collection<Command.Data.Name, Command>();
@@ -26,9 +34,9 @@ for (const file of commandFiles) {
             body: devCommands.map((command) => command.data),
         });
     } catch (error) {
-        console.error(error);
-    } finally {
-        console.log("Commands have been registered.");
-        process.exit(1);
+        console.error("Failed to register commands:", error);
+        process.exitCode = 1;
+        return;
     }
+    console.log("Commands have been registered.");
 })();

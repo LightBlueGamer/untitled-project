@@ -4,6 +4,7 @@ import { loadSession } from "../auth.js";
 import { getCache, getPool } from "../database.js";
 import Player from "../classes/Player.js";
 import lobbiesRouter from "./lobbies.js";
+import { debugLog } from "../debugSettings.js";
 
 const PLINKO_MIN_ROWS = 8;
 const PLINKO_MAX_ROWS = 16;
@@ -92,6 +93,7 @@ export async function recordBets(
     game: "plinko" | "blackjack" | "bills" | "poker",
     rounds: { bet: number; payout: number }[],
 ): Promise<void> {
+    debugLog("gambling", "global", `Player ${userId}, ${game}: ${rounds.length} round(s), wager ${rounds.reduce((sum, round) => sum + round.bet, 0)}, payout ${rounds.reduce((sum, round) => sum + round.payout, 0)}`);
     try {
         await getPool().query(
             `INSERT INTO casino_bets (user_id, game, bet, payout)

@@ -5,8 +5,10 @@ siteHeader.innerHTML = `
   <a class="site-brand" href="/">Prestigious Ledger</a>
   <nav id="accountNav" class="account-nav" aria-label="Account navigation">
     <a id="loginLink" class="btn hidden" href="/auth/discord">Login with Discord</a>
+    <span id="accountName" class="account-name hidden"></span>
+    <a id="companionsTab" class="nav-link" href="/companions">Companions</a>
+    <a id="wikiTab" class="nav-link" href="/wiki">Wiki</a>
     <div id="loggedInNav" class="logged-in-nav hidden">
-      <span id="accountName" class="account-name"></span>
       <a id="leaderboardTab" class="nav-link" href="/">Leaderboard</a>
       <a id="profileTab" class="nav-link" href="/?view=profile">Profile</a>
       <a id="casinoTab" class="nav-link" href="/casino">Casino</a>
@@ -20,7 +22,9 @@ siteHeader.innerHTML = `
 const navLinks = {
   leaderboard: siteHeader.querySelector('#leaderboardTab'),
   profile: siteHeader.querySelector('#profileTab'),
-  casino: siteHeader.querySelector('#casinoTab')
+  companions: siteHeader.querySelector('#companionsTab'),
+  casino: siteHeader.querySelector('#casinoTab'),
+  wiki: siteHeader.querySelector('#wikiTab')
 };
 
 function setNavCurrent(name) {
@@ -35,6 +39,12 @@ function setNavCurrent(name) {
 
 if (location.pathname.startsWith('/casino')) {
   setNavCurrent('casino');
+} else if (location.pathname.startsWith('/skills')) {
+  setNavCurrent('profile');
+} else if (location.pathname.startsWith('/companions') || location.pathname.startsWith('/companion')) {
+  setNavCurrent('companions');
+} else if (location.pathname.startsWith('/wiki')) {
+  setNavCurrent('wiki');
 }
 
 // The ledger page swaps views in place instead of reloading.
@@ -76,6 +86,7 @@ const authReady = fetch('/api/auth/me', { cache: 'no-store' })
       .classList.toggle('hidden', !auth.user);
 
     if (auth.user) {
+      siteHeader.querySelector('#accountName').classList.remove('hidden');
       siteHeader.querySelector('#accountName').textContent =
         auth.user.displayName;
     } else if (!auth.enabled) {

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Companion Circulation | Prestigious Ledger</title>
+    <link rel="stylesheet" href="/styles/main.css">
+  </head>
+  <body>
+    <div class="wrap companion-wrap">
+      <header id="siteHeader"></header>
+      <main>
+        <div class="hero">
+          <div>
+            <div class="eyebrow">Creature records</div>
+            <h1>Companion circulation</h1>
+          </div>
+          <a class="btn" href="/wiki">Read the game guide</a>
+        </div>
+        <div class="panel">
+          <div class="toolbar">
+            <span id="companionStatus" class="status" role="status" aria-live="polite">Loading companion records…</span>
+            <button id="companionRetry" class="btn hidden" type="button">Retry</button>
+          </div>
+          <div class="table-wrap">
+            <table class="companion-table">
+              <thead><tr>
+                <th scope="col" data-sort="name"><button type="button" class="sort-button" data-sort="name">Companions <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" data-sort="rarity"><button type="button" class="sort-button" data-sort="rarity">Rarity <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" data-sort="quantity"><button type="button" class="sort-button" data-sort="quantity">In circulation <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+              </tr></thead>
+              <tbody id="companionBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script src="/scripts/nav.js"></script>
+    <script src="/scripts/companions.js"></script>
+  </body>
+</html>

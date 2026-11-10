@@ -152,5 +152,102 @@ export const PrestigeBuffs: PrestigeBuff[] = [
             player.balanceMultiplier *= 1.1;
         },
         id: 16
+    },
+    {
+        id: 17,
+        weight: 6500,
+        name: "Quick Learner",
+        description: "Permanently adds 3 XP to each base message reward, before multipliers.",
+        buff: player => player.addPrestigeExperienceFlat(3),
+    },
+    {
+        id: 18,
+        weight: 3000,
+        name: "Dedicated Learner",
+        description: "Permanently adds 6 XP to each base message reward, before multipliers.",
+        buff: player => player.addPrestigeExperienceFlat(6),
+    },
+    {
+        id: 19,
+        weight: 6500,
+        name: "Loose Change",
+        description: "Permanently adds $10 to each base message reward, before multipliers.",
+        buff: player => player.addPrestigeBalanceFlat(10),
+    },
+    {
+        id: 20,
+        weight: 3000,
+        name: "Steady Income",
+        description: "Permanently adds $20 to each base message reward, before multipliers.",
+        buff: player => player.addPrestigeBalanceFlat(20),
+    },
+    {
+        id: 21,
+        weight: 5500,
+        name: "Balanced Growth",
+        description: "Permanently adds 1% to both your XP and money multipliers.",
+        buff: player => {
+            player.experienceMultiplier += .01;
+            player.balanceMultiplier += .01;
+        },
+    },
+    {
+        id: 22,
+        weight: 1800,
+        name: "Versatile Growth",
+        description: "Permanently adds 2.5% to both your XP and money multipliers.",
+        buff: player => {
+            player.experienceMultiplier += .025;
+            player.balanceMultiplier += .025;
+        },
+    },
+    {
+        id: 23,
+        weight: 4000,
+        name: "Companion Trail",
+        description: "Permanently adds 5% to your companion appearance multiplier on your eligible messages.",
+        buff: player => player.addPrestigeCompanionSpawnBonus(.05),
+    },
+    {
+        id: 24,
+        weight: 1500,
+        name: "Wildlife Magnet",
+        description: "Permanently adds 10% to your companion appearance multiplier on your eligible messages.",
+        buff: player => player.addPrestigeCompanionSpawnBonus(.1),
+    },
+    {
+        id: 25,
+        weight: 3500,
+        name: "Rare Trail",
+        description: "Permanently adds 5% to your Rare-or-higher companion selection weight multiplier.",
+        buff: player => player.addPrestigeCompanionRarityBonus(.05),
+    },
+    {
+        id: 26,
+        weight: 1200,
+        name: "Rare Beacon",
+        description: "Permanently adds 10% to your Rare-or-higher companion selection weight multiplier.",
+        buff: player => player.addPrestigeCompanionRarityBonus(.1),
+    },
+    {
+        id: 27,
+        weight: 2500,
+        name: "Fresh Start",
+        description: "Receive 3 skill points immediately after this prestige; they reset on your next prestige.",
+        buff: player => { player.skillPoints += 3; },
+    },
+    {
+        id: 28,
+        weight: 800,
+        name: "Head Start",
+        description: "Receive 6 skill points immediately after this prestige; they reset on your next prestige.",
+        buff: player => { player.skillPoints += 6; },
+    },
+    {
+        id: 29,
+        weight: 1500,
+        name: "Companion Keeper",
+        description: "Permanently grants one additional companion equipment slot.",
+        buff: player => player.grantPrestigeCompanionSlot(),
     }
 ]

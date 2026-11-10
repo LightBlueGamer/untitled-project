@@ -1,25 +1,26 @@
 import { PrestigeBuff, PrestigeBuffs } from "./prestigeBuffs.js";
 
-export function getRandomPrestigeBuff(): PrestigeBuff {
-    const totalWeight = PrestigeBuffs.reduce((sum, buff) => sum + buff.weight, 0);
+export function getRandomPrestigeBuff(availableBuffs: readonly PrestigeBuff[] = PrestigeBuffs): PrestigeBuff {
+    const totalWeight = availableBuffs.reduce((sum, buff) => sum + buff.weight, 0);
     let randomWeight = Math.random() * totalWeight;
-    for (const buff of PrestigeBuffs) {
+    for (const buff of availableBuffs) {
         randomWeight -= buff.weight;
-        if (randomWeight <= 0) {
+        if (randomWeight < 0) {
             return buff;
         }
     }
     throw new Error("No prestige buff found.");
 };
 
-export function getMultipleRandomPrestigeBuffs(count: number): PrestigeBuff[] {
+export function getMultipleRandomPrestigeBuffs(count: number, choices: readonly PrestigeBuff[] = PrestigeBuffs): PrestigeBuff[] {
     const selectedBuffs: PrestigeBuff[] = [];
-    const availableBuffs = [...PrestigeBuffs];
+    const availableBuffs = [...choices];
 
     for (let i = 0; i < count; i++) {
         if (availableBuffs.length === 0) break;
-        const buff = getRandomPrestigeBuff();
+        const buff = getRandomPrestigeBuff(availableBuffs);
         selectedBuffs.push(buff);
+        availableBuffs.splice(availableBuffs.indexOf(buff), 1);
     }
     return selectedBuffs;
 };

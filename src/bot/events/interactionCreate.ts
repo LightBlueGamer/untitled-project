@@ -8,7 +8,10 @@ export default {
         const { user, client } = interaction;
         if (user.bot) return;
 
-        (await Player.get(user.id, client)).save();
+        const companionInteraction =
+            ((interaction.isChatInputCommand() || interaction.isAutocomplete()) && ["companion", "debug"].includes(interaction.commandName)) ||
+            (interaction.isButton() && (interaction.customId.startsWith("companion_list:") || interaction.customId.startsWith("companion_catch:")));
+        if (!companionInteraction) await Player.get(user.id, client);
 
         if (interaction.isChatInputCommand()) {
             return interaction.client.emit(

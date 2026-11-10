@@ -1,6 +1,7 @@
 import { ButtonBuilder, ActionRowBuilder, ChatInputCommandInteraction, SlashCommandBuilder, MessageFlags, MessageActionRowComponentBuilder } from "discord.js";
 import Player from "../../classes/Player.js";
 import { getMultipleRandomPrestigeBuffs } from "../../resources/functions.js";
+import { PrestigeBuffs } from "../../resources/prestigeBuffs.js";
 
 export default {
     devMode: false,
@@ -21,8 +22,9 @@ export default {
             let buffs;
             if(player.hasExistingBuffChoices) buffs = player.temporaryPrestigeBuffData!;
             else {
-                buffs = getMultipleRandomPrestigeBuffs(3);
-                player.addTemporaryPrestigeBuffData(buffs).save();
+                buffs = getMultipleRandomPrestigeBuffs(3, PrestigeBuffs.filter(buff =>
+                    buff.id !== 29 || !player.hasPrestigeCompanionSlot));
+                await player.addTemporaryPrestigeBuffData(buffs).save();
             }
             const actionRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
                 buffs.map(buff => new ButtonBuilder()
@@ -32,7 +34,7 @@ export default {
                 )
             );
             return interaction.reply({
-                content: `You can prestige to prestige level ${player.prestigeLevel+1} and select earn a buff while reseting your XP and Level. Select a buff from below to prestige!`,
+                content: `You can prestige to prestige level ${player.prestigeLevel+1} and earn a buff. This resets your XP, level, unlocked skills, and unspent skill points. Select a buff below to prestige!\n\n${buffs.map(buff => `**${buff.name}**: ${buff.description}`).join("\n")}`,
                 components: [actionRow],
                 flags: [MessageFlags.Ephemeral]
             });
