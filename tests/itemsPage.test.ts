@@ -77,6 +77,7 @@ describe("item pages", () => {
         const names = [
             "itemStatus", "itemDetails", "itemRetry", "itemName", "itemType", "itemDescription",
             "itemPrice", "itemOdds", "itemCirculation", "itemScavenge", "itemRecipeSection", "itemRecipe",
+            "itemUsedInSection", "itemUsedIn",
             "itemToolBonusSection", "itemToolBonusHeading", "itemToolBonus", "itemToolRulesSection", "itemToolRules",
         ];
         const nodes = Object.fromEntries(names.map(name => [name, new Element()]));
@@ -89,23 +90,60 @@ describe("item pages", () => {
                     name: "Iron Pick", rarity: "Rare", category: "Tool", description: "A pick.",
                     price: 100, weight: 0, canScavenge: false,
                     circulation: "42",
-                    recipe: [{ name: "Fieldstone", quantity: 3 }],
+                    recipe: [{ key: "fieldstone", name: "Fieldstone", quantity: 3 }],
+                    usedIn: [{ key: "better_pick", name: "Better Pick", quantity: 2 }],
                     toolsWithBonus: [], blacklistTools: [],
                     toolBonus: "1.8× chance weight for Material items",
                 }),
             });
         const context = createContext({
             fetch, URLSearchParams, location: { search: "?key=iron_pick" },
-            document: { querySelector: (selector: string) => nodes[selector.slice(1)], createElement: () => new Element() },
+            document: {
+                querySelector: (selector: string) => nodes[selector.slice(1)],
+                createElement: () => new Element(),
+                createTextNode: (text: string) => Object.assign(new Element(), { textContent: text }),
+            },
         });
         runInContext(readFileSync("public/scripts/item.js", "utf8"), context);
         await vi.waitFor(() => expect(nodes.itemStatus.textContent).toContain("not found"));
         nodes.itemRetry.listeners.click();
         await vi.waitFor(() => expect(nodes.itemName.textContent).toBe("Iron Pick"));
         expect(nodes.itemDetails.className).toBe("rarity-rare");
-        expect(nodes.itemRecipe.children[0].textContent).toBe("Fieldstone × 3");
+        expect(nodes.itemRecipe.children[0].className).toBe("item-recipe-card");
+        expect(nodes.itemRecipe.children[0].children[0].href).toBe("/item?key=fieldstone");
+        expect(nodes.itemRecipe.children[0].children[0].textContent).toBe("Fieldstone");
+        expect(nodes.itemRecipe.children[0].children[0].className).toBe("item-recipe-name");
+        expect(nodes.itemRecipe.children[0].children[1].textContent).toBe("× 3");
+        expect(nodes.itemRecipe.children[0].children[1].className).toBe("item-recipe-quantity");
         expect(nodes.itemToolBonus.textContent).toContain("Material");
         expect(nodes.itemScavenge.textContent).toBe("No");
         expect(nodes.itemCirculation.textContent).toBe("42");
+        expect(nodes.itemUsedInSection.classList.toggle).toHaveBeenCalledWith("hidden", false);
+        expect(nodes.itemUsedIn.children[0].children[0].href).toBe("/item?key=better_pick");
+        expect(nodes.itemUsedIn.children[0].children[0].textContent).toBe("Better Pick");
+        expect(nodes.itemUsedIn.children[0].className).toBe("item-recipe-card");
+        expect(nodes.itemUsedIn.children[0].children[1].textContent).toBe("2 required");
+    });
+
+    test("hides the used-in section when no recipes use an item", async () => {
+        const names = [
+            "itemStatus", "itemDetails", "itemRetry", "itemName", "itemType", "itemDescription",
+            "itemPrice", "itemOdds", "itemCirculation", "itemScavenge", "itemRecipeSection", "itemRecipe",
+            "itemUsedInSection", "itemUsedIn", "itemToolBonusSection", "itemToolBonusHeading", "itemToolBonus",
+            "itemToolRulesSection", "itemToolRules",
+        ];
+        const nodes = Object.fromEntries(names.map(name => [name, new Element()]));
+        const context = createContext({
+            fetch: vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({
+                name: "Relic", rarity: "Rare", category: "Treasure", description: "", price: 10,
+                circulation: "0", canScavenge: true, recipe: [], usedIn: [], toolsWithBonus: [], blacklistTools: [],
+            }) }),
+            URLSearchParams, location: { search: "?key=relic" },
+            document: { querySelector: (selector: string) => nodes[selector.slice(1)], createElement: () => new Element() },
+        });
+        runInContext(readFileSync("public/scripts/item.js", "utf8"), context);
+        await vi.waitFor(() => expect(nodes.itemName.textContent).toBe("Relic"));
+        expect(nodes.itemUsedIn.children).toHaveLength(0);
+        expect(nodes.itemUsedInSection.classList.toggle).toHaveBeenCalledWith("hidden", true);
     });
 });

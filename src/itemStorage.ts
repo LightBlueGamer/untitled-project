@@ -599,6 +599,7 @@ export async function getPlayerItemProfile(playerId: string, toolSlots = 1) {
             name: items[key]?.name ?? key,
             rarity: items[key]?.rarity ?? null,
             category: items[key]?.category ?? null,
+            price: Object.hasOwn(items, key) ? items[key].price : null,
             quantity,
         })),
         equippedTools: state.equippedTools.map(key => ({ key, name: tools[key]?.name ?? key })),

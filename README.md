@@ -5,6 +5,8 @@ introduced in that release.
 
 ## 2026-11-10 — Homepage, skill tree, companions, and game guide
 
+- Added item sales on the signed-in player's profile, using the same prices,
+  inventory checks and equipped-tool handling as `/sell`.
 - Enabled public slash commands for both server and user installations,
   including DMs and group DMs, and added an account-install link to the
   homepage. The developer-only debug command remains server-scoped.

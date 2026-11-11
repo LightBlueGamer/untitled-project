@@ -3,6 +3,26 @@ const itemDetails = document.querySelector('#itemDetails');
 const itemRetry = document.querySelector('#itemRetry');
 const itemKey = new URLSearchParams(location.search).get('key');
 
+function itemLink(key, name) {
+  const link = document.createElement('a');
+  link.href = `/item?key=${encodeURIComponent(key)}`;
+  link.textContent = name;
+  return link;
+}
+
+function recipeCard(item, quantityLabel) {
+  const row = document.createElement('li');
+  row.className = 'item-recipe-card';
+  const link = itemLink(item.key, item.name);
+  link.className = 'item-recipe-name';
+  const quantity = document.createElement('span');
+  quantity.className = 'item-recipe-quantity';
+  quantity.textContent = quantityLabel;
+  row.appendChild(link);
+  row.appendChild(quantity);
+  return row;
+}
+
 async function loadItem() {
   itemStatus.textContent = 'Loading item…';
   itemDetails.classList.add('hidden');
@@ -27,12 +47,15 @@ async function loadItem() {
 
     const recipeSection = document.querySelector('#itemRecipeSection');
     const recipe = document.querySelector('#itemRecipe');
-    recipe.replaceChildren(...item.recipe.map(ingredient => {
-      const row = document.createElement('li');
-      row.textContent = `${ingredient.name} × ${ingredient.quantity}`;
-      return row;
-    }));
+    recipe.replaceChildren(...item.recipe.map(ingredient =>
+      recipeCard(ingredient, `× ${ingredient.quantity}`)));
     recipeSection.classList.toggle('hidden', item.recipe.length === 0);
+
+    const usedInSection = document.querySelector('#itemUsedInSection');
+    const usedIn = document.querySelector('#itemUsedIn');
+    usedIn.replaceChildren(...item.usedIn.map(craft =>
+      recipeCard(craft, `${craft.quantity} required`)));
+    usedInSection.classList.toggle('hidden', item.usedIn.length === 0);
 
     const bonusSection = document.querySelector('#itemToolBonusSection');
     const displayedBonus = item.capacity != null ? `${item.capacity} storage slots` : item.toolBonus ?? item.consumableEffect;

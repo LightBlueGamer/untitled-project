@@ -4,6 +4,7 @@ let allPlayers = [];
 let currentPage = 1;
 let currentUser = null;
 let profileId = null;
+let salePending = false;
 
 let PLAYERS_PER_PAGE = 10;
 
@@ -231,9 +232,9 @@ function comparePlayers(a, b) {
   return 0;
 }
 
-async function loadPlayers() {
+async function loadPlayers(fresh = false) {
   try {
-    const r = await fetch(API_BASE);
+    const r = fresh ? await fetch(API_BASE, { cache: 'no-store' }) : await fetch(API_BASE);
     if (!r.ok) throw new Error(`Request failed (${r.status})`);
     const data = await r.json();
     allPlayers = Array.isArray(data) ? data : (data.players ?? []);
@@ -248,7 +249,7 @@ function stat(label, value, wide = false) {
   return `<div class="stat ${wide ? 'wide' : ''}"><label>${label}</label><strong>${fmt(value)}</strong></div>`;
 }
 
-async function loadProfile(id) {
+async function loadProfile(id, fresh = false) {
   profileId = id;
   $('#openSkillTree').classList.add('hidden');
   $('#profileCompanions').textContent = 'Loading companions…';
@@ -257,8 +258,10 @@ async function loadProfile(id) {
   $('#profileLootboxes').textContent = '';
   $('#profileEquippedTools').textContent = '';
   $('#profileItemBonuses').textContent = '';
+  $('#profileSaleStatus').textContent = '';
   try {
-    const r = await fetch(`${API_BASE}/${encodeURIComponent(id)}`);
+    const url = `${API_BASE}/${encodeURIComponent(id)}`;
+    const r = fresh ? await fetch(url, { cache: 'no-store' }) : await fetch(url);
     if (!r.ok) throw new Error(r.status === 404 ? 'Player not found' : `Request failed (${r.status})`);
     const p = await r.json();
     if (profileId !== id) return;
@@ -304,15 +307,62 @@ async function loadProfileItems(id) {
       ? `<ul class="profile-collection-list">${data.items.map(item => {
         const name = esc(item.name);
         const rarity = String(item.rarity ?? '').toLowerCase();
+        const sellForm = currentUser?.id === id && Number.isSafeInteger(item.price) && item.price > 0
+          ? `<form class="profile-sell-form" data-item="${esc(item.key)}">
+              <label>Quantity <input type="number" name="quantity" min="1" max="${item.quantity}" step="1" value="1" required></label>
+              <button type="submit" class="btn"${salePending ? ' disabled' : ''}>Sell for $${item.price.toLocaleString()} each</button>
+            </form>`
+          : '';
         return `<li class="profile-collection-card rarity-${/^(common|uncommon|rare|epic|legendary|mythic|eternal)$/.test(rarity) ? rarity : 'retired'}">
           <a class="profile-collection-name" href="/item?key=${encodeURIComponent(item.key)}">${name}</a>
           <span class="profile-collection-kind">${esc(item.category ?? 'Unknown')}</span>
           <span class="profile-collection-count">${fmt(item.quantity)} owned</span>
+          ${sellForm}
         </li>`;
       }).join('')}</ul>`
       : '<p>No items yet. Use <code>/scavenge</code> to find some.</p>';
   } catch (error) {
     if (profileId === id) $('#profileItems').textContent = `Could not load item inventory. ${error.message}`;
+  }
+}
+
+async function sellProfileItem(event) {
+  const form = event.target;
+  if (!form.matches('.profile-sell-form')) return;
+  event.preventDefault();
+  const id = profileId;
+  if (salePending || !currentUser || currentUser.id !== id) return;
+  const quantity = Number(form.elements.quantity.value);
+  const maximum = Number(form.elements.quantity.max);
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > maximum) {
+    $('#profileSaleStatus').textContent = 'Choose a whole number between 1 and the number you own.';
+    return;
+  }
+  salePending = true;
+  form.querySelector('button').disabled = true;
+  $('#profileSaleStatus').textContent = 'Selling item…';
+  try {
+    let message;
+    try {
+      const response = await fetch('/api/items/sell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item: form.dataset.item, quantity }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+      message = `Sold ${data.quantity} × ${data.item} for $${Number(data.proceeds).toLocaleString()}.${data.unequipped ? ' Your tool was unequipped.' : ''}`;
+    } catch (error) {
+      message = `Sale could not be confirmed: ${error.message}. Check your inventory before trying again.`;
+    }
+    if (profileId !== id) return;
+    await loadPlayers(true);
+    if (profileId !== id) return;
+    await loadProfile(id, true);
+    if (profileId === id) $('#profileSaleStatus').textContent = message;
+  } finally {
+    salePending = false;
+    $('#profileItems').querySelectorAll('.profile-sell-form button').forEach(button => { button.disabled = false; });
   }
 }
 
@@ -436,6 +486,7 @@ $('#search').addEventListener('input', () => {
 
 $('#returnToLedger').addEventListener('click', showLeaderboard);
 $('#jumpToPlayer').addEventListener('click', jumpToCurrentPlayer);
+$('#profileItems').addEventListener('submit', sellProfileItem);
 
 document
   .querySelectorAll('.sort-button')

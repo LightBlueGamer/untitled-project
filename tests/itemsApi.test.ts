@@ -10,7 +10,7 @@ vi.mock("../src/database.js", () => ({
 }));
 
 import router from "../src/api/routes/items.js";
-import { ItemCategory, items, Tool } from "../src/resources/items.js";
+import { CraftableItem, ItemCategory, items, Tool } from "../src/resources/items.js";
 import Player from "../src/classes/Player.js";
 import { calculateScavengeWeights, scavengeOdds } from "../src/itemStorage.js";
 
@@ -49,7 +49,7 @@ describe("item API", () => {
         expect(data.items.find(item => item.key === "iron_pick").odds).toBeNull();
         expect(data.items.find(item => item.key === "small_pouch")).toMatchObject({ source: "Starter", capacity: 10, recipe: [] });
         expect(data.items.find(item => item.key === "shoulder_bag")).toMatchObject({
-            source: "Crafted", capacity: 20, recipe: expect.arrayContaining([{ name: "Small Pouch", quantity: 1 }]),
+            source: "Crafted", capacity: 20, recipe: expect.arrayContaining([{ key: "small_pouch", name: "Small Pouch", quantity: 1 }]),
         });
         expect(data.items.find(item => item.key === "iron_ore")).not.toHaveProperty("weight");
         expect(data.items.find(item => item.key === "healing_balm")).toMatchObject({
@@ -57,8 +57,8 @@ describe("item API", () => {
             category: ItemCategory.Consumable,
             canScavenge: false,
             recipe: [
-                { name: "Wild Berries", quantity: 3 },
-                { name: "Moonleaf", quantity: 1 },
+                { key: "wild_berries", name: "Wild Berries", quantity: 3 },
+                { key: "moonleaf", name: "Moonleaf", quantity: 1 },
             ],
         });
         expect(data.items.find(item => item.key === "healing_balm").description)
@@ -74,6 +74,11 @@ describe("item API", () => {
         const tool = data.items.find(item => item.key === "iron_pick");
         expect(items.iron_pick).toBeInstanceOf(Tool);
         expect(tool.toolBonus).toContain("Material");
+        for (const entry of data.items) {
+            for (const ingredient of entry.recipe) {
+                expect(items[ingredient.key]?.name).toBe(ingredient.name);
+            }
+        }
     });
 
     test("returns an item detail or a clear not-found response", async () => {
@@ -84,9 +89,30 @@ describe("item API", () => {
             category: ItemCategory.Tool,
             circulation: "0",
             toolBonus: expect.stringContaining("Material"),
+            recipe: expect.arrayContaining([{ key: "iron_ore", name: "Iron Ore", quantity: expect.any(Number) }]),
         });
         const missing = await fetch(`${url}/missing`);
         expect(missing.status).toBe(404);
         expect(await missing.json()).toEqual({ error: "Item not found" });
+    });
+
+    test("item details list every recipe using the item with its required quantity", async () => {
+        for (const key of ["wild_berries", "small_pouch", "shoulder_bag"]) {
+            const response = await fetch(`${url}/${key}`);
+            const detail = await response.json();
+            const expected = Object.entries(items).flatMap(([recipeKey, item]) => {
+                if (!(item instanceof CraftableItem)) return [];
+                const quantity = item.recipe.get(items[key]);
+                return quantity === undefined ? [] : [{ key: recipeKey, name: item.name, quantity }];
+            }).sort((a, b) => a.name.localeCompare(b.name));
+            expect(expected.length).toBeGreaterThan(0);
+            expect(detail.usedIn).toEqual(expected);
+        }
+        expect((await (await fetch(`${url}/small_pouch`)).json()).usedIn)
+            .toContainEqual({ key: "shoulder_bag", name: "Shoulder Bag", quantity: 1 });
+        const unusedKey = Object.keys(items).find(key => !Object.values(items)
+            .some(item => item instanceof CraftableItem && item.recipe.has(items[key])));
+        expect(unusedKey).toBeDefined();
+        expect((await (await fetch(`${url}/${unusedKey}`)).json()).usedIn).toEqual([]);
     });
 });

@@ -1,6 +1,10 @@
 import { ApplicationIntegrationType, InteractionContextType } from "discord.js";
 import type { Command } from "../classes/Command.js";
 
+export function isGuildOnlyCommand(data: Command.Data): boolean {
+    return data.name === "debug";
+}
+
 export function publicCommandData(data: Command.Data): Command.Data {
     return {
         ...data,

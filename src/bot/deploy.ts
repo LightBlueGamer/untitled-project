@@ -4,7 +4,7 @@ import { readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "../classes/Command.js";
-import { publicCommandData } from "./commandRegistration.js";
+import { isGuildOnlyCommand, publicCommandData } from "./commandRegistration.js";
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -21,7 +21,7 @@ const devCommands = new Collection<Command.Data.Name, Command>();
 for (const file of commandFiles) {
     console.log(file);
     const command: Command = (await import(`./commands/${file}`)).default;
-    if (command.devMode) {
+    if (isGuildOnlyCommand(command.data)) {
         devCommands.set(command.data.name, command);
     } else commands.set(command.data.name, command);
 }
