@@ -4,6 +4,7 @@ import { readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "../classes/Command.js";
+import { publicCommandData } from "./commandRegistration.js";
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -28,7 +29,7 @@ for (const file of commandFiles) {
 (async () => {
     try {
         await rest.put(Routes.applicationCommands(clientId), {
-            body: commands.map((command) => command.data),
+            body: commands.map((command) => publicCommandData(command.data)),
         });
         await rest.put(Routes.applicationGuildCommands(clientId, supportId), {
             body: devCommands.map((command) => command.data),

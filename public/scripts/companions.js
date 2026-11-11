@@ -1,13 +1,18 @@
 const companionStatus = document.querySelector('#companionStatus');
 const companionBody = document.querySelector('#companionBody');
 const companionRetry = document.querySelector('#companionRetry');
+const companionSearch = document.querySelector('#companionSearch');
 const companionSortButtons = document.querySelectorAll('.companion-table .sort-button');
 const rarityOrder = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Eternal'];
 let companionRecords = [];
 let companionSort = { key: 'rarity', direction: 'desc' };
 
 function renderCompanions() {
-  const rows = [...companionRecords].sort((a, b) => {
+  const query = companionSearch.value.trim().toLocaleLowerCase();
+  const filteredRecords = companionRecords.filter(companion =>
+    [companion.name, companion.key, companion.rarity]
+      .some(value => String(value ?? '').toLocaleLowerCase().includes(query)));
+  const rows = [...filteredRecords].sort((a, b) => {
     let comparison;
     if (companionSort.key === 'quantity') {
       const left = BigInt(a.quantity), right = BigInt(b.quantity);
@@ -48,7 +53,10 @@ function renderCompanions() {
     if (active) header.setAttribute('aria-sort', companionSort.direction === 'asc' ? 'ascending' : 'descending');
     else header.removeAttribute('aria-sort');
   });
-  companionStatus.textContent = `${rows.length} companion species`;
+  companionStatus.textContent = !rows.length && query
+    ? 'No companions match your search.'
+    : query ? `${rows.length} of ${companionRecords.length} companion species`
+      : `${rows.length} companion species`;
 }
 
 async function loadCompanionCirculation() {
@@ -74,4 +82,5 @@ companionSortButtons.forEach(button => button.addEventListener('click', () => {
   renderCompanions();
 }));
 companionRetry.addEventListener('click', loadCompanionCirculation);
+companionSearch.addEventListener('input', renderCompanions);
 void loadCompanionCirculation();

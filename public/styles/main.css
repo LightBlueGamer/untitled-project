@@ -115,6 +115,12 @@ body:before {
     margin-bottom: 10px;
 }
 
+.hero-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .hero h1 {
     font-size: clamp(30px, 3vw, 44px);
     line-height: 0.95;
@@ -141,6 +147,151 @@ body:before {
     border-radius: 18px;
     box-shadow: var(--shadow);
     overflow: hidden;
+}
+
+.home-hero {
+    padding: clamp(32px, 7vw, 76px) clamp(20px, 5vw, 64px);
+    margin-bottom: 18px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background:
+        radial-gradient(ellipse at 82% 18%, #76543855, transparent 38%),
+        linear-gradient(145deg, #30223dee, #15121eeb);
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.home-hero h1 {
+    margin: 12px 0;
+    color: var(--gold2);
+    font-size: clamp(38px, 7vw, 68px);
+    text-shadow: 0 3px 22px #000;
+}
+
+.home-hero > p:not(.status) {
+    max-width: 700px;
+    margin: 0 auto;
+    color: var(--muted);
+    font-size: clamp(17px, 2.5vw, 22px);
+    line-height: 1.5;
+}
+
+.home-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.secondary-btn {
+    border-color: var(--line);
+    background: linear-gradient(#55435f, #30263c);
+    color: var(--text);
+    box-shadow: 0 2px 0 #17111d;
+}
+
+.home-hero .status {
+    min-height: 18px;
+    margin: 12px 0 0;
+}
+
+.home-stats,
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.home-stat {
+    display: grid;
+    gap: 8px;
+    padding: 18px;
+}
+
+.home-stat strong {
+    overflow-wrap: anywhere;
+    color: var(--gold2);
+    font-size: clamp(20px, 3vw, 30px);
+}
+
+.home-stat > span:last-child {
+    color: var(--muted);
+    font: 13px Arial, sans-serif;
+}
+
+.home-section {
+    margin-top: 30px;
+}
+
+.home-section .hero h2 {
+    margin: 4px 0 5px;
+    color: var(--gold2);
+    font-size: clamp(25px, 3vw, 34px);
+}
+
+.top-players {
+    list-style: none;
+    margin: 0;
+    padding: 0 18px;
+}
+
+.top-player {
+    display: grid;
+    grid-template-columns: 48px minmax(120px, 1fr) minmax(160px, auto) minmax(90px, auto);
+    align-items: center;
+    gap: 12px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.top-player:last-child {
+    border-bottom: 0;
+}
+
+.top-player-rank {
+    color: var(--gold);
+    font-weight: bold;
+    font-size: 20px;
+}
+
+.top-player a,
+.feature-card a {
+    color: var(--gold2);
+    font-weight: bold;
+}
+
+.top-player-level {
+    color: var(--muted);
+    font: 13px Arial, sans-serif;
+}
+
+.top-player-balance {
+    text-align: right;
+}
+
+.top-player-empty {
+    padding: 18px 0;
+    color: var(--muted);
+}
+
+.feature-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.feature-card {
+    padding: 20px;
+}
+
+.feature-card h3 {
+    margin: 0 0 8px;
+    color: var(--gold2);
+}
+
+.feature-card p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.5;
 }
 
 .wiki-content {
@@ -186,6 +337,12 @@ body:before {
     padding: 6px 10px;
     color: var(--text);
     font: 14px Georgia;
+}
+
+.toolbar select.search {
+    flex: 0 1 190px;
+    min-width: 150px;
+    min-height: 34px;
 }
 
 .status {
@@ -360,13 +517,56 @@ tbody tr.current-player {
 
 .profile-companions {
     margin-top: 20px;
+    padding: 20px;
 }
 
-.profile-companion-list {
+.profile-companions h3 {
+    margin: 0 0 14px;
+    color: var(--gold2);
+    font-size: 23px;
+}
+
+.profile-collection-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 10px 24px;
-    padding-left: 1.5em;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.profile-collection-card {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+    padding: 13px 15px;
+    border: 1px solid color-mix(in srgb, var(--rarity-color) 36%, var(--line));
+    border-left: 3px solid var(--rarity-color);
+    border-radius: 12px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--rarity-color) 9%, var(--panel2)), #17131f);
+}
+
+.profile-collection-name {
+    overflow-wrap: anywhere;
+    color: var(--rarity-color);
+    font-size: 17px;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+a.profile-collection-name:hover {
+    color: var(--gold2);
+}
+
+.profile-collection-kind,
+.profile-collection-count {
+    color: var(--muted);
+    font: 12px Arial, sans-serif;
+}
+
+.profile-collection-count {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
 }
 
 .profile {
@@ -491,8 +691,12 @@ tbody tr.current-player {
 
 .skill-tree-viewport {
     height: clamp(320px, 55vh, 620px);
-    overflow: hidden;
-    background: radial-gradient(ellipse at 50% 75%, #1a3043, #111b2b 68%);
+    overflow: auto;
+    background-color: #101927;
+    background-image:
+        radial-gradient(circle, #71839a25 1px, transparent 1px),
+        radial-gradient(ellipse at 50% 45%, #1a3043, #111b2b 72%);
+    background-size: 24px 24px, auto;
     cursor: grab;
     touch-action: none;
     user-select: none;
@@ -569,6 +773,26 @@ tbody tr.current-player {
     --branch-color: #c493ff;
 }
 
+.branch-casino {
+    --branch-color: #ff8a65;
+}
+
+.branch-lootboxDrop,
+.branch-lootboxRarity,
+.branch-lootboxReward,
+.branch-lootboxFind {
+    --branch-color: #f3c96b;
+}
+
+.branch-scavenge,
+.branch-scavengeCooldown,
+.branch-scavengeRarity,
+.branch-scavengeFind,
+.branch-scavengeExperience,
+.branch-toolSlots {
+    --branch-color: #8bd1ff;
+}
+
 .skill-tree-graph {
     position: relative;
     flex: none;
@@ -592,14 +816,15 @@ tbody tr.current-player {
     inset: 0;
     width: 100%;
     height: 100%;
-    overflow: visible;
+    overflow: hidden;
     pointer-events: none;
 }
 
 .skill-link {
     fill: none;
-    stroke: #596777;
-    stroke-width: 2;
+    stroke: #8292a755;
+    stroke-width: 2.5;
+    transition: opacity .2s, stroke .2s, stroke-width .2s;
 }
 
 .skill-link.active {
@@ -618,23 +843,26 @@ tbody tr.current-player {
 .skill-node {
     position: absolute;
     transform: translate(-50%, -26px);
-    width: 140px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: #c4cfda;
+    width: 160px;
+    padding: 8px 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--branch-color) 45%, #42516a);
+    border-radius: 16px;
+    background: linear-gradient(155deg, #1d2b3d, #121c2b 72%);
+    box-shadow: 0 8px 20px #0005, inset 0 1px #ffffff0b;
+    color: #d7e0e9;
     font: 12px Arial, sans-serif;
     line-height: 1.25;
     cursor: pointer;
     text-align: center;
+    transition: border-color .2s, background .2s, box-shadow .2s;
 }
 
 .skill-node-icon {
     display: grid;
     place-items: center;
-    width: 52px;
-    height: 52px;
-    margin: 0 auto 7px;
+    width: 42px;
+    height: 42px;
+    margin: 0 auto 6px;
     border: 2px solid #718090;
     border-radius: 50%;
     background: #142031;
@@ -665,6 +893,18 @@ tbody tr.current-player {
     box-shadow: 0 0 0 4px #dce8f355, 0 0 18px var(--branch-color);
 }
 
+.skill-node:hover,
+.skill-node[aria-pressed="true"] {
+    z-index: 2;
+    border-color: var(--branch-color);
+    background: linear-gradient(155deg, #263950, #162336 72%);
+    box-shadow: 0 12px 28px #0008, 0 0 0 2px color-mix(in srgb, var(--branch-color) 35%, transparent);
+}
+
+.skill-node.owned {
+    border-color: color-mix(in srgb, var(--branch-color) 70%, #42516a);
+}
+
 .skill-node:focus-visible {
     outline: 2px solid #fff;
     outline-offset: 4px;
@@ -672,15 +912,12 @@ tbody tr.current-player {
 }
 
 .skill-node-name {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
+    display: block;
     max-width: 100%;
     padding: 2px 5px;
-    border-radius: 4px;
-    background: #142031;
-    overflow-wrap: anywhere;
+    color: #e6edf5;
+    font-weight: 600;
+    overflow-wrap: break-word;
 }
 
 .skill-tree-fallback {
@@ -783,6 +1020,27 @@ tbody tr.current-player {
 }
 
 @media (max-width: 720px) {
+    .home-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .feature-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .top-player {
+        grid-template-columns: 38px minmax(0, 1fr) auto;
+    }
+
+    .top-player-level {
+        grid-column: 2;
+    }
+
+    .top-player-balance {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+    }
+
     .hero {
         align-items: start;
     }
@@ -816,6 +1074,13 @@ tbody tr.current-player {
 
     .logged-in-nav {
         justify-content: flex-start;
+    }
+}
+
+@media (max-width: 460px) {
+    .home-stats,
+    .feature-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -861,6 +1126,19 @@ tbody tr.current-player {
 
 .companion-table {
     min-width: 520px;
+}
+
+.item-table {
+    min-width: 1020px;
+}
+
+.item-wiki section {
+    margin-top: 24px;
+}
+
+.item-wiki ul {
+    color: var(--muted);
+    line-height: 1.7;
 }
 
 .companion-table th,
@@ -938,6 +1216,10 @@ tbody tr.current-player {
 .balance-badge strong {
     color: var(--gold2);
     font-size: 28px;
+}
+
+.balance-badge #casinoPayoutBonus {
+    font-size: 18px;
 }
 
 .game-menu {

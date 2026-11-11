@@ -18,6 +18,9 @@
           <div class="balance-badge">
             <span class="balance-label">Your balance</span>
             <strong id="casinoBalance">…</strong>
+            <span class="balance-label">House-game payout boost</span>
+            <strong id="casinoPayoutBonus">…</strong>
+            <span id="casinoBonusNote" class="muted-note">Plinko, Blackjack, Pass the Bills and solo poker</span>
             <button id="soundToggle" class="nav-link" type="button" aria-pressed="true">🔊 Sound on</button>
           </div>
         </div>
@@ -64,6 +67,7 @@
               <li>Play goes around the circle until only one bill is left.</li>
               <li>The holder of the last bill must roll a circle to win the whole pot. Left/right passes the bill on, a star is a re-roll.</li>
               <li>If you win you get the pot times a multiplier that grows with the table size: 3 players 1×, 4 players 1.25×, 5 players 1.5×, 6 players 1.75×, 7 players 2×, 8 players 4×.</li>
+              <li>Your house-game payout boost increases only the profit on a winning round; it does not change the odds or affect losses and multiplayer games.</li>
               <li>If anyone else wins, you lose your bet. Tick "Auto roll" to roll your dice automatically.</li>
             </ul>
           </details>
@@ -112,7 +116,7 @@
               <ul>
                 <li>Single-player Texas Hold'em against bots. Your buy-in becomes your chips; the bots play with free chips.</li>
                 <li>Blinds are 5% and 10% of the buy-in. Everyone gets two private cards, then bet over the flop, turn and river to make the best 5-card hand.</li>
-                <li>Hands keep going until you leave, when your chips are paid back to your balance. You have 45 seconds to act before an automatic check or fold.</li>
+                <li>Hands keep going until you leave, when your chips are paid back to your balance. Your house-game payout boost applies to profits on cash-out. You have 45 seconds to act before an automatic check or fold.</li>
               </ul>
             </details>
             <div class="blackjack-controls">
@@ -186,12 +190,13 @@
               <li>Number cards count their value, J/Q/K count 10, and an Ace counts 11 or 1, whichever is better.</li>
               <li>Hit to take another card, Stand to keep your hand, or Double down to double your bet, take exactly one more card and stand.</li>
               <li>The dealer draws until reaching 17 or more and stands on all 17s.</li>
-              <li>Win pays 1:1, a natural blackjack (21 with two cards) pays 3:2, and a tie returns your bet. Going over 21 loses. There is no splitting.</li>
+              <li>Win pays 1:1, a natural blackjack (21 with two cards) pays 3:2, and a tie returns your bet. Your house-game payout boost increases only the profit on winning hands; it does not affect losses, ties, or player games. Going over 21 loses. There is no splitting.</li>
             </ul>
           </details>
           <div class="blackjack-table">
             <div class="bj-table-top">
               <span class="bj-chip">Bet <strong id="bjBetShown">$0</strong></span>
+              <span id="bjHouseBonus" class="muted-note">House-game payout boost applies to winning profit.</span>
             </div>
             <div class="bj-hand">
               <div class="bj-label">Dealer <span id="bjDealerTotal" class="bj-total"></span></div>
@@ -273,6 +278,7 @@
               </div>
 
               <div class="total-bet">Total bet <strong id="plinkoTotal">$10</strong></div>
+              <p id="plinkoHouseBonus" class="muted-note">Displayed winning multipliers include your house-game payout boost; losing slots are unchanged.</p>
               <div class="control-group">
                 <label for="plinkoSpeed" class="eyebrow">Auto drop speed: <span id="plinkoSpeedValue">10</span>/sec</label>
                 <input id="plinkoSpeed" type="range" min="1" max="20" step="1" value="10">

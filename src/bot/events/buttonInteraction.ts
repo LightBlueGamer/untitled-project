@@ -5,6 +5,9 @@ import { getPrestigeBuff } from "../../resources/functions.js";
 import { handleCompanionListButton } from "../commands/companion.js";
 import { handleCatchButton } from "../companionEncounters.js";
 import { getCompanion } from "../../resources/companions.js";
+import { getLootboxBonuses, savePlayerWithLootbox } from "../../lootboxStorage.js";
+import { rollLootboxRarity } from "../../resources/lootboxes.js";
+import { type Rarity } from "../../resources/rarities.js";
 
 export default {
     name: "buttonInteraction",
@@ -40,6 +43,8 @@ export default {
             try {
                 const buff: PrestigeBuff = getPrestigeBuff(interaction.customId.split("_")[2]);
                 let unequipped: string[] = [];
+                let lootbox: Rarity;
+                const roll = Math.random();
                 for (let attempt = 0; ; attempt++) {
                     const player = await Player.get(user.id, client);
                     if (!player.prestigeInfo.canPrestige ||
@@ -50,18 +55,21 @@ export default {
                         });
                         return;
                     }
+                    const bonuses = await getLootboxBonuses(player.id);
+                    lootbox = rollLootboxRarity("prestige", player.prestigeLevel + 1,
+                        player.lootboxRarityMultiplier * bonuses.lootboxRarity, () => roll);
                     const previouslyEquipped = player.equippedCompanions;
                     player.prestige(() => buff.buff(player)).clearTemporaryPrestigeBuffData();
                     unequipped = previouslyEquipped.filter(key => !player.equippedCompanions.includes(key));
                     try {
-                        await player.save();
+                        await savePlayerWithLootbox(player, lootbox);
                         break;
                     } catch (error) {
                         if (!(error instanceof PlayerConflictError) || attempt >= 2) throw error;
                     }
                 }
                 await interaction.reply({
-                    content: `You selected the ${(interaction.component as ButtonComponent).label} buff! Your experience, level, skills, and skill points have been reset, but you kept your money. ${buff.description}${unequipped.length ? ` Unequipped due to lost slots: ${unequipped.map(key => getCompanion(key)?.name ?? key).join(", ")}.` : ""}`,
+                    content: `You selected the ${(interaction.component as ButtonComponent).label} buff! Your experience, level, skills, and skill points have been reset, but you kept your money. ${buff.description} You received a **${lootbox} lootbox**; open it with \`/lootbox open\`.${unequipped.length ? ` Unequipped due to lost slots: ${unequipped.map(key => getCompanion(key)?.name ?? key).join(", ")}.` : ""}`,
                     flags: [MessageFlags.Ephemeral]
                 });
             } catch (error) {

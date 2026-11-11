@@ -3,104 +3,97 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Prestigious Ledger</title>
+    <title>Prestigious Ledger | Discord Adventure Bot</title>
     <link rel="stylesheet" href="/styles/main.css">
   </head>
   <body>
     <div class="wrap">
       <header id="siteHeader"></header>
-      <section id="listView">
-        <div class="hero">
-          <div>
-            <div class="eyebrow">Chronicles of Prestige</div>
-            <h1>Players’ Ledger</h1>
+      <main>
+        <section class="home-hero">
+          <div class="eyebrow">Your next adventure starts here</div>
+          <h1>Prestigious Ledger</h1>
+          <p>Chat, level up, master your skills, collect companions, and test your luck with friends.</p>
+          <div class="home-actions">
+            <a id="inviteBot" class="btn" href="#" target="_blank" rel="noopener noreferrer">Add to your server</a>
+            <a id="installUser" class="btn secondary-btn" href="#" target="_blank" rel="noopener noreferrer">Add to your account</a>
+            <a class="btn secondary-btn" href="/leaderboard">Explore the leaderboard</a>
           </div>
-          <div class="crest">✦</div>
-        </div>
-        <div class="panel">
-          <div class="toolbar">
-            <input
-              id="search"
-              class="search"
-              placeholder="Search adventurer..."
-              autocomplete="on"
-            >
-
-            <span id="status" class="status">
-              Summoning records…
-            </span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Rank</th>
-                  <th scope="col">Name</th>
-
-                  <th scope="col" data-sort="prestige">
-                    <button
-                      type="button"
-                      class="sort-button"
-                      data-sort="prestige"
-                      aria-label="Sort by prestige"
-                    >
-                      Prestige
-                      <span class="sort-arrow" aria-hidden="true">↕</span>
-                    </button>
-                  </th>
-
-                  <th scope="col">Level</th>
-
-                  <th scope="col">Experience</th>
-
-                  <th scope="col" data-sort="balance">
-                    <button
-                      type="button"
-                      class="sort-button"
-                      data-sort="balance"
-                      aria-label="Sort by balance"
-                    >
-                      Balance
-                      <span class="sort-arrow" aria-hidden="true">↕</span>
-                    </button>
-                  </th>
-
-                  <th scope="col">Profile</th>
-                </tr>
-              </thead>
-              <tbody id="playersBody"></tbody>
-            </table>
-          </div>
-          <nav id="pagination" class="pagination hidden" aria-label="Ledger pages"></nav>
-          <div id="empty" class="empty hidden">No adventurers found.</div>
-          <div id="error" class="error hidden"></div>
-        </div>
-      </section>
-      <section id="profileView" class="hidden">
-        <div class="profile-actions">
-          <button id="returnToLedger" class="btn" type="button">← Return to ledger</button>
-          <button id="jumpToPlayer" class="btn hidden" type="button">Find me on the leaderboard</button>
-        </div>
-        <div class="panel profile">
-          <div class="identity">
-            <div id="avatar" class="avatar">✦</div>
-            <h2 id="profileName">Adventurer</h2>
-            <div id="profileRank" class="profile-rank"></div>
-          </div>
-          <div class="stats">
-            <div class="eyebrow">Character record</div>
-            <h3>Statistics</h3>
-            <div id="statGrid" class="stat-grid"></div>
-            <a id="openSkillTree" class="btn hidden" href="/skills">Open skill tree</a>
-          </div>
-        </div>
-        <section class="panel profile-companions" aria-labelledby="profileCompanionsHeading">
-          <h3 id="profileCompanionsHeading">Companions</h3>
-          <div id="profileCompanions" aria-live="polite"></div>
+          <p id="inviteStatus" class="status" role="status"></p>
         </section>
-      </section>
+
+        <section class="home-stats" aria-label="Community statistics">
+          <article class="panel home-stat">
+            <span class="eyebrow">Servers</span>
+            <strong id="serverCount">Loading…</strong>
+            <span>where the bot is active</span>
+          </article>
+          <article class="panel home-stat">
+            <span class="eyebrow">Unique players</span>
+            <strong id="userCount">Loading…</strong>
+            <span>human members across servers</span>
+          </article>
+          <article class="panel home-stat">
+            <span class="eyebrow">Total balance</span>
+            <strong id="balanceTotal">Loading…</strong>
+            <span>held by all players</span>
+          </article>
+          <article class="panel home-stat">
+            <span class="eyebrow">Lifetime XP</span>
+            <strong id="experienceTotal">Loading…</strong>
+            <span>earned by all players</span>
+          </article>
+        </section>
+
+        <section class="home-section">
+          <div class="hero">
+            <div>
+              <div class="eyebrow">The realm at a glance</div>
+              <h2>Top adventurers</h2>
+            </div>
+            <a class="btn" href="/leaderboard">View leaderboard</a>
+          </div>
+          <div id="homeStatus" class="status" role="status" aria-live="polite">Gathering community records…</div>
+          <ol id="topPlayers" class="top-players panel"></ol>
+        </section>
+
+        <section class="home-section">
+          <div class="hero">
+            <div>
+              <div class="eyebrow">Make your mark</div>
+              <h2>What you can do</h2>
+            </div>
+          </div>
+          <div class="feature-grid">
+            <article class="panel feature-card">
+              <h3>Grow through conversation</h3>
+              <p>Earn XP and currency by chatting. Level up to gain skill points and unlock upgrades.</p>
+            </article>
+            <article class="panel feature-card">
+              <h3>Build your skill tree</h3>
+              <p>Choose your path through connected skills that improve rewards and companion encounters.</p>
+            </article>
+            <article class="panel feature-card">
+              <h3>Find companions</h3>
+              <p>Catch companions, collect their rarities, and equip them for bonuses to your progression.</p>
+            </article>
+            <article class="panel feature-card">
+              <h3>Play together</h3>
+              <p>Visit the casino for Plinko, Blackjack, poker, Pass the Bills, and multiplayer lobbies.</p>
+            </article>
+            <article class="panel feature-card">
+              <h3>Prestige for lasting buffs</h3>
+              <p>Reset your progression when you qualify to earn prestige levels and permanent bonuses.</p>
+            </article>
+            <article class="panel feature-card">
+              <h3>Explore the guide</h3>
+              <p>Learn about game systems, commands, skills, and companions in the <a href="/wiki">wiki</a>.</p>
+            </article>
+          </div>
+        </section>
+      </main>
     </div>
     <script src="/scripts/nav.js"></script>
-    <script src="/scripts/main.js"></script>
+    <script src="/scripts/home.js"></script>
   </body>
 </html>

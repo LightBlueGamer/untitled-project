@@ -46,19 +46,21 @@ describe("prestige buffs", () => {
     test("persistent buffs survive serialization and later prestiges; starting points do not", () => {
         const player = new Player("Test", "1", { level: 10, skills: ["experience_gain_1"], skillPoints: 20 });
         player.prestige();
-        for (const id of [18, 20, 23, 24, 25, 26, 27]) getPrestigeBuff(String(id)).buff(player);
+        for (const id of [18, 20, 23, 24, 25, 26, 27, 30, 31]) getPrestigeBuff(String(id)).buff(player);
         expect(player.skillPoints).toBe(3);
         const reloaded = new Player(player.name, player.id, JSON.parse(JSON.stringify(player.toJSON())));
         expect(reloaded.prestigeExperienceFlat).toBe(6);
         expect(reloaded.prestigeBalanceFlat).toBe(20);
         expect(reloaded.prestigeCompanionSpawnMultiplier).toBeCloseTo(1.15);
         expect(reloaded.prestigeCompanionRarityMultiplier).toBeCloseTo(1.15);
+        expect(reloaded.casinoPayoutMultiplier).toBeCloseTo(1.09);
         reloaded.prestige();
         expect(reloaded.skillPoints).toBe(0);
         expect(reloaded.prestigeExperienceFlat).toBe(6);
         expect(reloaded.prestigeBalanceFlat).toBe(20);
         expect(reloaded.prestigeCompanionSpawnMultiplier).toBeCloseTo(1.15);
         expect(reloaded.prestigeCompanionRarityMultiplier).toBeCloseTo(1.15);
+        expect(reloaded.casinoPayoutMultiplier).toBeCloseTo(1.09);
         getPrestigeBuff("28").buff(reloaded);
         expect(reloaded.skillPoints).toBe(6);
     });
@@ -69,6 +71,7 @@ describe("prestige buffs", () => {
         expect(player.prestigeBalanceFlat).toBe(0);
         expect(player.prestigeCompanionSpawnMultiplier).toBe(1);
         expect(player.prestigeCompanionRarityMultiplier).toBe(1);
+        expect(player.casinoPayoutMultiplier).toBe(1);
         const reward = player.assignRandomExperienceAndBalance(() => 0);
         expect(reward.experienceAwarded).toBe(15);
         expect(reward.balanceAwarded).toBe(50);
@@ -112,6 +115,6 @@ describe("prestige buffs", () => {
         await prestigeCommand.execute({
             user: { id: player.id }, client: {}, reply,
         } as unknown as ChatInputCommandInteraction);
-        expect(player.temporaryPrestigeBuffData?.map(buff => buff.id)).toEqual([28, 27, 26]);
+        expect(player.temporaryPrestigeBuffData?.map(buff => buff.id)).toEqual([35, 34, 33]);
     });
 });

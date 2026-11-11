@@ -1,5 +1,5 @@
 // Multiplayer lobbies for Pass the Bills and Poker. Relies on globals from casino.js.
-/* global $, api, format, cell, setBalance, refreshBalance, sound */
+/* global $, api, format, cell, setBalance, refreshBalance, sound, setCasinoPayoutMultiplier */
 (() => {
   const POLL_MS = 1000;
   const FACES = { circle: '⚪', star: '⭐', left: '⬅️', right: '➡️' };
@@ -243,6 +243,9 @@
   function show(lobby) {
     const previous = current;
     current = lobby;
+    if (lobby.casinoPayoutMultiplier !== undefined) {
+      setCasinoPayoutMultiplier(lobby.casinoPayoutMultiplier);
+    }
     clockOffset = lobby.now - Date.now();
     const signature = JSON.stringify(lobby, (key, value) =>
       ['now', 'deadline', 'nextHandAt'].includes(key) ? undefined : value);

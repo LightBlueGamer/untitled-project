@@ -1,7 +1,8 @@
 import { randomBytes, randomInt } from "node:crypto";
 import { Router } from "express";
 import { getPool } from "../database.js";
-import { adjustBalance, recordBets } from "./casino.js";
+import Player from "../classes/Player.js";
+import { adjustBalance, applyHousePayoutBonus, recordBets } from "./casino.js";
 
 // Multiplayer lobbies live in memory, so they are lost if the server restarts.
 
@@ -107,6 +108,7 @@ interface Lobby {
     bills: BillsState;
     poker: PokerState;
     solo?: boolean;
+    casinoPayoutMultiplier?: number;
 }
 
 const lobbies = new Map<string, Lobby>();
@@ -423,11 +425,18 @@ function cleanupSeats(lobby: Lobby): void {
         if (member.chips > 0 && !member.leaving) {
             return true;
         }
-        credit(member.id, member.chips);
+        const payout = lobby.solo && !isBot(member.id)
+            ? applyHousePayoutBonus(
+                member.chips,
+                Math.max(1, member.invested),
+                lobby.casinoPayoutMultiplier ?? 1,
+            )
+            : member.chips;
+        credit(member.id, payout);
         if (!isBot(member.id)) {
             money(
                 recordBets(member.id, "poker", [
-                    { bet: Math.max(1, member.invested), payout: member.chips },
+                    { bet: Math.max(1, member.invested), payout },
                 ]),
             );
         }
@@ -897,6 +906,7 @@ function view(lobby: Lobby, userId: string) {
         now: Date.now(),
         hostId: lobby.hostId,
         solo: Boolean(lobby.solo),
+        casinoPayoutMultiplier: lobby.solo ? lobby.casinoPayoutMultiplier ?? 1 : undefined,
     };
 
     if (lobby.game === "bills") {        const state = lobby.bills;
@@ -1060,6 +1070,18 @@ lobbiesRouter.post("/", async (request, response) => {
     busyUsers.add(userId);
     try {
         const name = await playerName(userId);
+        const player = botCount > 0 ? await Player.findById(userId) : null;
+        if (botCount > 0 && !player) {
+            response.status(404).json({ error: "Player not found" });
+            return;
+        }
+        const casinoPayoutMultiplier = player?.casinoPayoutMultiplier ?? 1;
+        if (botCount > 0 && !Number.isSafeInteger(
+            applyHousePayoutBonus(cost * maxPlayers, cost, casinoPayoutMultiplier),
+        )) {
+            response.status(400).json({ error: "Potential payout is too large" });
+            return;
+        }
         const balance = await adjustBalance(userId, -cost, cost);
         if (balance === null) {
             response.status(400).json({ error: "Insufficient balance" });
@@ -1074,6 +1096,7 @@ lobbiesRouter.post("/", async (request, response) => {
         for (let i = 0; i < botCount; i++) addBot(lobby);
         if (botCount > 0) {
             lobby.solo = true;
+            lobby.casinoPayoutMultiplier = casinoPayoutMultiplier;
             startHand(lobby);
         }
         lobbies.set(lobby.id, lobby);

@@ -5,6 +5,10 @@ import {
 import Player, { PlayerConflictError, type MessageRewardResult } from "../../classes/Player.js";
 import { handleEncounterMessage } from "../companionEncounters.js";
 import { debugLog } from "../../debugSettings.js";
+import { expireLevelUpMessage, levelUpMessage } from "../levelUp.js";
+import { getLootboxBonuses, savePlayerWithLootbox } from "../../lootboxStorage.js";
+import { lootboxDropChance, rollLootboxRarity } from "../../resources/lootboxes.js";
+import { type Rarity } from "../../resources/rarities.js";
 
 const cd = new Set();
 
@@ -23,6 +27,7 @@ export default {
         if (!cd.has(member.id)) {
             cd.add(member.id);
             let result: MessageRewardResult;
+            let lootbox: Rarity | null = null;
             const rolls = new Map<string, number>();
             const random = (key: string) => {
                 if (!rolls.has(key)) rolls.set(key, Math.random());
@@ -32,8 +37,14 @@ export default {
                 for (let attempt = 0; ; attempt++) {
                     const player = await Player.get(member.id, message.client);
                     result = player.assignRandomExperienceAndBalance(random);
+                    const bonuses = await getLootboxBonuses(player.id);
+                    lootbox = random("lootbox-drop") < lootboxDropChance(player.lootboxDropMultiplier * bonuses.lootboxDrop)
+                        ? rollLootboxRarity("message", player.prestigeLevel, player.lootboxRarityMultiplier * bonuses.lootboxRarity,
+                            () => random("lootbox-rarity"))
+                        : null;
                     try {
-                        await player.save();
+                        if (lootbox) await savePlayerWithLootbox(player, lootbox);
+                        else await player.save();
                         break;
                     } catch (error) {
                         if (!(error instanceof PlayerConflictError) || attempt >= 2) throw error;
@@ -49,14 +60,19 @@ export default {
             }, 30 * 1000);
             const {
                 didLevelUp,
-                previousLevel,
-                currentLevel,
-                skillPointsGained,
-                player: updatedPlayer,
             } = result;
             debugLog("rewards", message.channelId,
                 `Channel ${message.channelId}, player ${member.id}: ${result.experienceAwarded} XP, ${result.balanceAwarded} money, ${result.skillPointsGained + result.bonusSkillPoints} skill points`);
 
+            if (lootbox) {
+                try {
+                    await (message.channel as GuildTextBasedChannel).send({
+                        content: `${member} found a **${lootbox} lootbox**! Use \`/lootbox list\` to view it and \`/lootbox open\` to open it.`,
+                    });
+                } catch (error) {
+                    console.error("Failed to announce saved lootbox:", error);
+                }
+            }
             for (const reward of result.specialRewards.filter((item) => item.announce)) {
                 const rewards = [
                     reward.balance ? `$${reward.balance.toLocaleString()}` : null,
@@ -69,32 +85,9 @@ export default {
             }
 
             if (didLevelUp) {
-                const { canPrestige, currentRequirement } =
-                    updatedPlayer.prestigeInfo;
-                const reachedPrestigeRequirement =
-                    previousLevel < currentRequirement &&
-                    currentLevel >= currentRequirement;
-
-                if (canPrestige && reachedPrestigeRequirement) {
-                    await (message.channel as GuildTextBasedChannel).send({
-                        content:
-                            `${member}, congratulations! You've leveled up to level ${currentLevel} and earned ${skillPointsGained} skill point${skillPointsGained === 1 ? "" : "s"}! You can now prestige using the /prestige command!`,
-                    });
-                } else {
-                    const levelUpMessage = await (
-                        message.channel as GuildTextBasedChannel
-                    ).send({
-                        content: `${member}, congratulations! You've leveled up to level ${currentLevel} and earned ${skillPointsGained} skill point${skillPointsGained === 1 ? "" : "s"}! 🎉`,
-                    });
-                    setTimeout(() => {
-                        void levelUpMessage.delete().catch((error: unknown) => {
-                            console.error(
-                                "Failed to delete level-up message:",
-                                error,
-                            );
-                        });
-                    }, 10 * 1000);
-                }
+                const announcement = await (message.channel as GuildTextBasedChannel)
+                    .send(levelUpMessage(String(member), result));
+                expireLevelUpMessage(() => announcement.delete());
             }
         }
     },

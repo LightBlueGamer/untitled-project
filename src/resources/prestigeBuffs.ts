@@ -249,5 +249,39 @@ export const PrestigeBuffs: PrestigeBuff[] = [
         name: "Companion Keeper",
         description: "Permanently grants one additional companion equipment slot.",
         buff: player => player.grantPrestigeCompanionSlot(),
-    }
-]
+    },
+    {
+        id: 30,
+        weight: 4000,
+        name: "Lucky Charm",
+        description: "Permanently increases winning payouts in Plinko, Blackjack, Pass the Bills, and solo poker against the house by 3%; losses and multiplayer games are unaffected.",
+        buff: player => player.addPrestigeCasinoPayoutBonus(.03),
+    },
+    {
+        id: 31,
+        weight: 1500,
+        name: "House Whisperer",
+        description: "Permanently increases winning payouts in Plinko, Blackjack, Pass the Bills, and solo poker against the house by 6%; losses and multiplayer games are unaffected.",
+        buff: player => player.addPrestigeCasinoPayoutBonus(.06),
+    },
+    {
+        id: 32, weight: 3500, name: "Box Seeker",
+        description: "Permanently increases message lootbox chance by 15%.",
+        buff: player => player.addPrestigeLootboxBonus("drop", .15),
+    },
+    {
+        id: 33, weight: 2500, name: "Box Collector",
+        description: "Permanently improves higher-rarity lootbox odds by 15% per rarity tier.",
+        buff: player => player.addPrestigeLootboxBonus("rarity", .15),
+    },
+    {
+        id: 34, weight: 2000, name: "Treasure Instinct",
+        description: "Permanently improves higher-rarity lootbox reward odds by 20% per rarity tier.",
+        buff: player => player.addPrestigeLootboxBonus("reward", .2),
+    },
+    {
+        id: 35, weight: 2000, name: "Treasure Recovery",
+        description: "Permanently increases item and companion lootbox reward weights by 20% relative to boosts.",
+        buff: player => player.addPrestigeLootboxBonus("find", .2),
+    },
+];

@@ -3,6 +3,7 @@ import { createClient, RedisClientType } from "redis";
 import "dotenv/config";
 import type { Data } from "./classes/Player.js";
 import { initializeCompanionStorage } from "./companionStorage.js";
+import { initializeItemStorage } from "./itemStorage.js";
 
 const databaseUrl = process.env.POSTGRES_URL;
 const redisUrl = process.env.REDIS_URL;
@@ -71,6 +72,7 @@ export async function initDatabase(): Promise<void> {
         client.release();
     }
     await initializeCompanionStorage();
+    await initializeItemStorage();
 }
 
 export const redisClient: RedisClientType = createClient({

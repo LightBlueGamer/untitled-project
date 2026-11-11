@@ -16,11 +16,11 @@ const skillBackProfile = document.querySelector('#skillBackProfile');
 const viewedPlayerId = new URLSearchParams(location.search).get('player');
 const readOnlyTree = Boolean(viewedPlayerId);
 if (readOnlyTree) {
-  skillBackProfile.href = `/?id=${encodeURIComponent(viewedPlayerId)}`;
+  skillBackProfile.href = `/leaderboard?id=${encodeURIComponent(viewedPlayerId)}`;
   skillTreeInstructions.textContent = 'This skill tree is read-only. Select a skill to see its effect and prerequisites.';
   skillTreeLegend.textContent = 'Glowing nodes are unlocked; grey nodes have not been unlocked.';
 }
-const minTreeZoom = 0.4;
+const minTreeZoom = 0.15;
 const maxTreeZoom = 2;
 const treeZoomStep = 0.2;
 let treeZoom = 1;
@@ -47,7 +47,18 @@ const branchStyles = {
   balance: { label: 'Income', icon: '$' },
   skill: { label: 'Skill points', icon: '◆' },
   companionSpawn: { label: 'Companion appearance', icon: '✧' },
-  companionRarity: { label: 'Companion rarity', icon: '✦' }
+  companionRarity: { label: 'Companion rarity', icon: '✦' },
+  casino: { label: 'House-game payouts', icon: '♠' },
+  scavenge: { label: 'Scavenging', icon: '⌕' },
+  scavengeCooldown: { label: 'Scavenging cooldown', icon: '⌛' },
+  scavengeRarity: { label: 'Rare finds', icon: '◇' },
+  scavengeFind: { label: 'Extra finds', icon: '✚' },
+  scavengeExperience: { label: 'Scavenging XP', icon: '✦' },
+  lootboxDrop: { label: 'Lootbox chance', icon: '✦' },
+  lootboxRarity: { label: 'Lootbox rarity', icon: '◇' },
+  lootboxReward: { label: 'Lootbox rewards', icon: '✧' },
+  lootboxFind: { label: 'Lootbox treasure', icon: '◆' },
+  toolSlots: { label: 'Tool mastery', icon: '⚒' }
 };
 
 // Coordinates use a shared grid; the catalog remains authoritative for prerequisites.
@@ -63,7 +74,12 @@ const skillLayout = {
   experience_multiplier_2: [7, 14], discovery: [12, 14],
   skill_gain_1: [10, 15],
   inspiration: [6, 16], insightful_discovery: [8, 16],
-  steady_study: [6, 18], deep_focus: [8, 18]
+  steady_study: [6, 18], deep_focus: [8, 18],
+  house_edge_1: [2, 0], house_edge_2: [0, 2],
+  scavenging_efficiency: [0, 10], rare_finder: [2, 12],
+  extra_find: [0, 14], tool_mastery: [2, 16], scavenging_experience: [0, 18],
+  scavenging_experience_2: [0, 20],
+  box_hunter: [0, 8], box_fortune: [0, 6], box_treasures: [0, 4], box_recovery: [-2, 4]
 };
 
 function segmentsIntersect(a, b, c, d) {
@@ -135,6 +151,9 @@ function getSkillLayout(skills) {
       : { x: radius + 200 + radius * Math.cos(2 * Math.PI * index / skills.length),
         y: radius + 120 + radius * Math.sin(2 * Math.PI * index / skills.length) }];
   }));
+  const minX = Math.min(...[...positions.values()].map(point => point.x));
+  const shiftX = Math.max(0, 100 - minX);
+  positions.forEach(point => { point.x += shiftX; });
   return { positions, edges, clear: skillLayoutIsClear(positions, edges) };
 }
 
@@ -166,22 +185,24 @@ function renderSkillTree() {
   focusedSkill = null;
   const skillsByKey = new Map(treeData.skills.map(skill => [skill.key, skill]));
   const { positions, edges, clear } = getSkillLayout(treeData.skills);
-  const graphWidth = Math.max(400, ...[...positions.values()].map(point => point.x + 200));
-  const height = Math.max(250, ...[...positions.values()].map(point => point.y + 120));
-  const roots = treeData.skills.filter(skill => skill.prerequisites.length === 0)
-    .map(skill => positions.get(skill.key));
-  const bounds = roots.length ? {
-    left: Math.min(...roots.map(point => point.x)) - 75,
-    right: Math.max(...roots.map(point => point.x)) + 75,
-    top: Math.min(...roots.map(point => point.y)) - 31,
-    bottom: Math.max(...roots.map(point => point.y)) + 90
+  const points = [...positions.values()];
+  const bounds = points.length ? {
+    left: Math.min(...points.map(point => point.x - 85)),
+    right: Math.max(...points.map(point => point.x + 85)),
+    top: Math.min(...points.map(point => point.y - 35)),
+    bottom: Math.max(...points.map(point => point.y + 95))
   } : null;
+  const graphWidth = Math.max(400, (bounds?.right ?? 200) + 60);
+  const height = Math.max(250, (bounds?.bottom ?? 150) + 60);
   const center = bounds
     ? { x: (bounds.left + bounds.right) / 2, y: (bounds.top + bounds.bottom) / 2 }
     : { x: graphWidth / 2, y: height / 2 };
   if (!treePositionInitialized && clear && bounds) {
-    const fit = Math.min(1, (skillViewport.clientWidth - 40) / (bounds.right - bounds.left),
-      (skillViewport.clientHeight - 40) / (bounds.bottom - bounds.top));
+    const fit = Math.min(
+      1,
+      (skillViewport.clientWidth - 40) / (bounds.right - bounds.left),
+      (skillViewport.clientHeight - 40) / (bounds.bottom - bounds.top)
+    );
     treeZoom = Math.max(minTreeZoom, Math.floor(fit * 100) / 100);
   }
   const connections = edges.map(([key, target]) => {

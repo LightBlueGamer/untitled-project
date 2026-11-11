@@ -63,6 +63,22 @@ app.get('/companions', (_request, response) => {
     response.sendFile(join(projectRoot, 'public', 'companions.html'))
 })
 
+app.get('/items.html', (request, response) => {
+    response.redirect(301, `/items${request.url.slice(request.path.length)}`)
+})
+
+app.get('/items', (_request, response) => {
+    response.sendFile(join(projectRoot, 'public', 'items.html'))
+})
+
+app.get('/item.html', (request, response) => {
+    response.redirect(301, `/item${request.url.slice(request.path.length)}`)
+})
+
+app.get('/item', (_request, response) => {
+    response.sendFile(join(projectRoot, 'public', 'item.html'))
+})
+
 app.get('/companion.html', (request, response) => {
     response.redirect(301, `/companion${request.url.slice(request.path.length)}`)
 })
@@ -79,13 +95,25 @@ app.get('/wiki', (_request, response) => {
     response.sendFile(join(projectRoot, 'public', 'wiki.html'))
 })
 
+app.get('/leaderboard.html', (request, response) => {
+    response.redirect(301, `/leaderboard${request.url.slice(request.path.length)}`)
+})
+
+app.get('/leaderboard', (_request, response) => {
+    response.sendFile(join(projectRoot, 'public', 'leaderboard.html'))
+})
+
+app.get('/', (request, response) => {
+    if (['id', 'view', 'authError'].some(key => key in request.query)) {
+        response.redirect(302, `/leaderboard${request.url.slice(request.path.length)}`)
+        return
+    }
+    response.sendFile(join(projectRoot, 'public', 'index.html'))
+})
+
 app.use('/scripts', express.static(join(projectRoot, 'public', 'scripts')))
 app.use('/styles', express.static(join(projectRoot, 'public', 'styles')))
 app.use(express.static(join(projectRoot, 'public')))
-
-app.get('/', (_request, response) => {
-    response.sendFile(join(projectRoot, 'public', 'index.html'))
-})
 
 async function startServer(): Promise<void> {
     await initDatabase()

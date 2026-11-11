@@ -22,6 +22,8 @@ speedInput.addEventListener('input', () => {
 });
 
 let balance = 0;
+let casinoPayoutMultiplier = 1;
+let updateBillsPreview = () => {};
 let risk = 'medium';
 let multipliers = [];
 let activeBalls = [];
@@ -160,6 +162,17 @@ function formatMultiplier(value) {
 function setBalance(value) {
   balance = Number(value);
   balanceElement.textContent = format(balance);
+}
+
+function setCasinoPayoutMultiplier(value) {
+  const multiplier = Number(value) || 1;
+  casinoPayoutMultiplier = multiplier;
+  const bonus = Math.max(0, (multiplier - 1) * 100);
+  const formattedBonus = bonus.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  $('#casinoPayoutBonus').textContent = `+${formattedBonus}%`;
+  $('#bjHouseBonus').textContent = `Winning profit boost: +${formattedBonus}%`;
+  $('#plinkoHouseBonus').textContent = `Winning multipliers include your +${formattedBonus}% house-game payout boost; losing slots are unchanged.`;
+  updateBillsPreview();
 }
 
 function showMessage(text, kind = '') {
@@ -477,6 +490,7 @@ async function refreshBalance() {
   try {
     const data = await api('/balance');
     setBalance(data.balance);
+    setCasinoPayoutMultiplier(data.casinoPayoutMultiplier);
   } catch (error) {
     balanceElement.textContent = 'Unavailable';
     showMessage(error.message, 'loss');
@@ -517,6 +531,7 @@ async function drop(auto = false) {
     });
 
     multipliers = result.multipliers;
+    setCasinoPayoutMultiplier(result.casinoPayoutMultiplier);
     setBalance(balance - result.totalBet);
     await playDrops(result.drops, bet);
     setBalance(result.balance);
@@ -578,6 +593,7 @@ async function toggleAuto() {
         body: JSON.stringify({ bet, balls: 1, rows: currentRows(), risk })
       });
       multipliers = result.multipliers;
+      setCasinoPayoutMultiplier(result.casinoPayoutMultiplier);
       sound.drop();
       net += result.totalPayout - result.totalBet;
       count++;
@@ -612,6 +628,7 @@ async function loadMultipliers() {
     const data = await api(`/plinko?rows=${currentRows()}&risk=${risk}`);
     if (token === loadToken) {
       multipliers = data.multipliers;
+      setCasinoPayoutMultiplier(data.casinoPayoutMultiplier);
       slotFlash = {};
       draw();
     }
@@ -830,6 +847,7 @@ autoButton.addEventListener('click', toggleAuto);
     dealerTotal.textContent = game.dealerHidden ? `${game.dealerTotal} + ?` : game.dealerTotal;
     playerTotal.textContent = game.playerTotal;
     betShown.textContent = format(game.bet);
+    setCasinoPayoutMultiplier(game.casinoPayoutMultiplier);
 
     betControls.classList.toggle('hidden', game.active);
     actions.classList.toggle('hidden', !game.active);
@@ -1008,11 +1026,14 @@ autoButton.addEventListener('click', toggleAuto);
     const players = Number(playersInput.value);
     const multiplier = MULTIPLIERS[players - 3];
     const stake = bet * 3;
+    const basePayout = Math.floor(stake * players * multiplier);
+    const boostedPayout = stake + Math.floor((basePayout - stake) * casinoPayoutMultiplier);
     $('#billsPlayersValue').textContent = players;
     $('#billsTotal').textContent = format(stake);
     $('#billsMultiplier').textContent = `${multiplier}×`;
-    $('#billsPossible').textContent = format(Math.floor(stake * players * multiplier));
+    $('#billsPossible').textContent = format(boostedPayout);
   }
+  updateBillsPreview = updatePreview;
 
   async function play() {
     const bet = Number(betInput.value);
@@ -1030,6 +1051,7 @@ autoButton.addEventListener('click', toggleAuto);
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bet, players })
       });
+      setCasinoPayoutMultiplier(game.casinoPayoutMultiplier);
       names = game.names;
       sound.chip();
       setBalance(game.balance - game.payout);

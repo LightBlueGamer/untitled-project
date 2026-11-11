@@ -49,6 +49,27 @@ const response = (data: object, ok = true, status = 200) => ({
 });
 
 describe("skill tree page", () => {
+    test("keeps the expanded skill catalog on its mapped tree and shows the casino branch", async () => {
+        const keysBySkill = new Map(Object.entries(skills).map(([key, skill]) => [skill, key]));
+        const fullCatalog = Object.entries(skills).map(([key, skill]) => ({
+            key,
+            name: skill.name,
+            description: skill.description,
+            cost: skill.cost,
+            effect: skill.effect,
+            prerequisites: skill.prerequisites.map(prerequisite => keysBySkill.get(prerequisite)),
+        }));
+        const fetch = vi.fn().mockResolvedValue(response({
+            skills: fullCatalog,
+            unlocked: [],
+            skillPoints: 0,
+        }));
+        const { elements } = createPage(fetch);
+        await vi.waitFor(() => expect(elements.skillPoints.textContent).toBe("Available skill points: 0"));
+        expect(elements.skillTree.innerHTML).toContain("branch-casino");
+        expect(elements.skillTree.innerHTML).toContain("skill-tree-zoom-frame");
+    });
+
     test("another player's tree is read-only and links back to their profile", async () => {
         const fetch = vi.fn().mockResolvedValue(response({
             name: "Other", skills: catalog, unlocked: ["root"], skillPoints: 99,
@@ -59,7 +80,7 @@ describe("skill tree page", () => {
         expect(elements.skillTreeOwner.textContent).toBe("Other's progression (read-only)");
         expect(elements.skillTree.innerHTML).toContain("Child: Not unlocked");
         expect(elements.skillTreeInstructions.textContent).toContain("read-only");
-        expect(runInContext("skillBackProfile.href", context)).toBe("/?id=another");
+        expect(runInContext("skillBackProfile.href", context)).toBe("/leaderboard?id=another");
         runInContext('selectSkill("child")', context);
         expect(elements.skillDetails.innerHTML).toContain("Requires all: Root");
         expect(elements.skillDetails.innerHTML).not.toContain("skill-purchase");
@@ -234,7 +255,8 @@ describe("skill tree page", () => {
         expect(nodes).toHaveLength(realCatalog.length);
         const byKey = new Map(nodes.map(node => [node.key, node]));
         expect(nodes.every(node => node.x % 100 === 0 && (node.y - 150) % 85 === 0)).toBe(true);
-        expect(nodes.filter(node => node.x % 200 === 0 && (node.y - 150) % 170 === 0).length)
+        const xOffset = Math.min(...nodes.map(node => node.x));
+        expect(nodes.filter(node => (node.x - xOffset) % 200 === 0 && (node.y - 150) % 170 === 0).length)
             .toBeGreaterThanOrEqual(15);
         const roots = realCatalog.filter(skill => skill.prerequisites.length === 0)
             .map(skill => byKey.get(skill.key)!);
@@ -249,18 +271,24 @@ describe("skill tree page", () => {
             min: Math.min(...points.map(point => point[axis])),
             max: Math.max(...points.map(point => point[axis])),
         });
+        const graphSizes = [...elements.skillTree.innerHTML.matchAll(/width:([\d.]+)px;height:([\d.]+)px/g)];
+        expect(graphSizes).toHaveLength(2);
+        const graphWidth = Number(graphSizes[1][1]), graphHeight = Number(graphSizes[1][2]);
+        expect(Math.min(...nodes.map(node => node.x)) - 85).toBeGreaterThanOrEqual(0);
+        expect(Math.max(...nodes.map(node => node.x)) + 85).toBeLessThan(graphWidth);
+        expect(Math.min(...nodes.map(node => node.y)) - 35).toBeGreaterThanOrEqual(0);
+        expect(Math.max(...nodes.map(node => node.y)) + 95).toBeLessThan(graphHeight);
         for (const axis of ["x", "y"] as const) {
-            const all = range(nodes, axis), base = range(roots, axis);
+            const all = range(nodes, axis);
             const width = all.max - all.min;
-            const center = roots.reduce((sum, root) => sum + root[axis], 0) / roots.length;
-            expect(Math.abs(center - (all.min + all.max) / 2)).toBeLessThan(width * 0.2);
+            const center = (all.min + all.max) / 2;
+            const boundsCenter = center + (axis === "y" ? 30 : 0);
             const scroll = axis === "x" ? elements.skillTreeViewport.scrollLeft : elements.skillTreeViewport.scrollTop;
             const padding = axis === "x" ? 26 : 38;
             const viewportSize = axis === "x" ? elements.skillTreeViewport.clientWidth : elements.skillTreeViewport.clientHeight;
             const zoom = Number.parseInt(elements.skillZoomLevel.textContent) / 100;
-            const rootBoundsCenter = (base.min + base.max) / 2 + (axis === "y" ? 29.5 : 0);
-            expect(scroll).toBeCloseTo(rootBoundsCenter * zoom + padding - viewportSize / 2);
-            const extent = base.max - base.min + (axis === "x" ? 150 : 121);
+            expect(scroll).toBeCloseTo(Math.max(0, boundsCenter * zoom + padding - viewportSize / 2));
+            const extent = width + (axis === "x" ? 170 : 130);
             expect(extent * zoom).toBeLessThanOrEqual(viewportSize - 40);
         }
         type Point = { x: number; y: number };
@@ -325,10 +353,10 @@ describe("skill tree page", () => {
         runInContext("treePositionInitialized = false; renderSkillTree()", context);
         const mobileZoom = Number.parseInt(elements.skillZoomLevel.textContent) / 100;
         for (const axis of ["x", "y"] as const) {
-            const base = range(roots, axis);
-            const size = axis === "x" ? 150 : 121;
+            const all = range(nodes, axis);
+            const size = axis === "x" ? 170 : 130;
             const viewportSize = axis === "x" ? 353 : 464;
-            expect((base.max - base.min + size) * mobileZoom).toBeLessThan(viewportSize);
+            expect((all.max - all.min + size) * mobileZoom).toBeLessThan(viewportSize);
         }
     });
 
@@ -388,7 +416,7 @@ describe("skill tree page", () => {
         expect(elements.skillZoomLevel.textContent).toBe("200%");
         expect(elements.skillZoomIn.disabled).toBe(true);
         runInContext("zoomFromCenter(0)", context);
-        expect(elements.skillZoomLevel.textContent).toBe("40%");
+        expect(elements.skillZoomLevel.textContent).toBe("15%");
         expect(elements.skillZoomOut.disabled).toBe(true);
         const reset = elements.skillZoomReset.addEventListener.mock.calls.find(([type]) => type === "click")?.[1];
         reset();

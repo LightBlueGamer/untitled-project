@@ -146,7 +146,7 @@ function renderPlayers(adjustPageSize = true) {
         <td>
           <a
             class="btn"
-            href="?id=${encodeURIComponent(player.id)}"
+            href="/leaderboard?id=${encodeURIComponent(player.id)}"
           >
             View profile
           </a>
@@ -252,6 +252,11 @@ async function loadProfile(id) {
   profileId = id;
   $('#openSkillTree').classList.add('hidden');
   $('#profileCompanions').textContent = 'Loading companions…';
+  $('#profileItems').textContent = 'Loading inventory…';
+  $('#profileBackpack').textContent = '';
+  $('#profileLootboxes').textContent = '';
+  $('#profileEquippedTools').textContent = '';
+  $('#profileItemBonuses').textContent = '';
   try {
     const r = await fetch(`${API_BASE}/${encodeURIComponent(id)}`);
     if (!r.ok) throw new Error(r.status === 404 ? 'Player not found' : `Request failed (${r.status})`);
@@ -267,17 +272,47 @@ async function loadProfile(id) {
       ? `Leaderboard rank #${globalRank}`
       : 'Unranked';
     if (profileId !== id) return;
-    $('#statGrid').innerHTML = stat('Prestige', p.prestige) + stat('Level', p.level) + stat('Experience', `${p.experience}`) + stat('Balance', `$${Number(p.balance ?? 0).toLocaleString()}`) + stat('Experience multiplier', `${p.experienceMultiplier ?? 1}×`) + stat('Balance multiplier', `${p.balanceMultiplier ?? 1}×`) + stat('Prestige bonus XP', `+${p.prestigeExperienceFlat ?? 0}`) + stat('Prestige bonus money', `+$${p.prestigeBalanceFlat ?? 0}`) + stat('Prestige appearance multiplier', `${Number(p.prestigeCompanionSpawnMultiplier ?? 1).toLocaleString()}×`) + stat('Prestige rarity multiplier', `${Number(p.prestigeCompanionRarityMultiplier ?? 1).toLocaleString()}×`) + stat('Companion slots', p.companionSlots ?? 1) + stat('Skill points', p.skillPoints ?? 0);
+    $('#statGrid').innerHTML = stat('Prestige', p.prestige) + stat('Level', p.level) + stat('Experience', `${p.experience}`) + stat('Balance', `$${Number(p.balance ?? 0).toLocaleString()}`) + stat('Experience multiplier', `${p.experienceMultiplier ?? 1}×`) + stat('Balance multiplier', `${p.balanceMultiplier ?? 1}×`) + stat('Prestige bonus XP', `+${p.prestigeExperienceFlat ?? 0}`) + stat('Prestige bonus money', `+$${p.prestigeBalanceFlat ?? 0}`) + stat('Prestige appearance multiplier', `${Number(p.prestigeCompanionSpawnMultiplier ?? 1).toLocaleString()}×`) + stat('Prestige rarity multiplier', `${Number(p.prestigeCompanionRarityMultiplier ?? 1).toLocaleString()}×`) + stat('Companion slots', p.companionSlots ?? 1) + stat('Tool slots', p.toolSlots ?? 1) + stat('Scavenge item bonus', `${Number(p.scavengeWeightMultiplier ?? 1).toLocaleString()}×`) + stat('Rare-find bonus', `${Number(p.scavengeRarityMultiplier ?? 1).toLocaleString()}×`) + stat('Extra item chance', `${Math.round(Number(p.scavengeExtraFindChance ?? 0) * 100)}%`) + stat('Skill points', p.skillPoints ?? 0);
     const ownProfile = currentUser?.id === p.id;
     $('#openSkillTree').href = ownProfile ? '/skills' : `/skills?player=${encodeURIComponent(p.id)}`;
     $('#openSkillTree').textContent = ownProfile ? 'Open skill tree' : 'View skill tree';
     $('#openSkillTree').classList.remove('hidden');
     await loadProfileCompanions(id);
+    await loadProfileItems(id);
   } catch (e) {
     if (profileId === id) {
       $('#statGrid').innerHTML = `<div class="error wide">${esc(e.message)}</div>`;
       $('#profileCompanions').textContent = 'Could not load companions because the profile could not be loaded.';
+      $('#profileItems').textContent = 'Could not load inventory because the profile could not be loaded.';
     }
+  }
+}
+
+async function loadProfileItems(id) {
+  try {
+    const response = await fetch(`/api/items/player/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    const data = await response.json();
+    if (profileId !== id) return;
+    $('#profileBackpack').textContent = `${data.backpack.name}: ${data.backpack.used}/${data.backpack.capacity} slots used`;
+    $('#profileLootboxes').textContent = `Lootboxes: ${data.lootboxes.boxes} · Unused lootbox boosts: ${data.lootboxes.boosts}`;
+    $('#profileEquippedTools').textContent = `Equipped tools (${data.equippedTools.length}/${data.toolSlots}): ${data.equippedTools.map(tool => tool.name).join(', ') || 'None'}`;
+    $('#profileItemBonuses').textContent = data.bonuses.length
+      ? `Active consumable effects: ${data.bonuses.map(bonus => `${bonus.type} (${Number(bonus.multiplier).toLocaleString()}×) until ${new Date(bonus.expiresAt).toLocaleString()}`).join('; ')}`
+      : 'No active consumable effects.';
+    $('#profileItems').innerHTML = data.items.length
+      ? `<ul class="profile-collection-list">${data.items.map(item => {
+        const name = esc(item.name);
+        const rarity = String(item.rarity ?? '').toLowerCase();
+        return `<li class="profile-collection-card rarity-${/^(common|uncommon|rare|epic|legendary|mythic|eternal)$/.test(rarity) ? rarity : 'retired'}">
+          <a class="profile-collection-name" href="/item?key=${encodeURIComponent(item.key)}">${name}</a>
+          <span class="profile-collection-kind">${esc(item.category ?? 'Unknown')}</span>
+          <span class="profile-collection-count">${fmt(item.quantity)} owned</span>
+        </li>`;
+      }).join('')}</ul>`
+      : '<p>No items yet. Use <code>/scavenge</code> to find some.</p>';
+  } catch (error) {
+    if (profileId === id) $('#profileItems').textContent = `Could not load item inventory. ${error.message}`;
   }
 }
 
@@ -288,11 +323,17 @@ async function loadProfileCompanions(id) {
     const data = await response.json();
     if (profileId !== id) return;
     $('#profileCompanions').innerHTML = data.companions.length
-      ? `<ul class="profile-companion-list">${data.companions.map(companion => {
+      ? `<ul class="profile-collection-list">${data.companions.map(companion => {
         const name = esc(companion.name ?? `${companion.key} (retired)`);
         const label = companion.name
-          ? `<a href="/companion?key=${encodeURIComponent(companion.key)}">${name}</a>` : name;
-        return `<li>${label}${companion.rarity ? ` · ${esc(companion.rarity)}` : ''} · ${fmt(companion.quantity)} owned${companion.equipped ? ' · Equipped' : ''}</li>`;
+          ? `<a class="profile-collection-name" href="/companion?key=${encodeURIComponent(companion.key)}">${name}</a>`
+          : `<span class="profile-collection-name">${name}</span>`;
+        const rarity = String(companion.rarity ?? '').toLowerCase();
+        return `<li class="profile-collection-card rarity-${/^(common|uncommon|rare|epic|legendary|mythic|eternal)$/.test(rarity) ? rarity : 'retired'}">
+          ${label}
+          <span class="profile-collection-kind">${esc(companion.rarity ?? 'Retired')}</span>
+          <span class="profile-collection-count">${fmt(companion.quantity)} owned${companion.equipped ? ' · Equipped' : ''}</span>
+        </li>`;
       }).join('')}</ul>`
       : '<p>No companions yet.</p>';
   } catch (error) {

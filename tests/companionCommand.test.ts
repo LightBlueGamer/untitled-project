@@ -44,6 +44,33 @@ describe("companion command", () => {
         await handleCompanionListButton(button);
         expect(lookup).toHaveBeenCalledWith("123");
         expect(update.mock.calls[0][0].embeds[0].data.footer.text).toBe("Page 2 of 2 · 1/1 equipped");
+        Object.assign(button, { customId: "companion_list:123:0:previous" });
+        await handleCompanionListButton(button);
+        expect(update.mock.lastCall?.[0].embeds[0].data.footer.text).toBe("Page 1 of 2 · 1/1 equipped");
+        Object.assign(button, { customId: "companion_list:123:1:next" });
+        await handleCompanionListButton(button);
+        expect(update.mock.lastCall?.[0].embeds[0].data.footer.text).toBe("Page 2 of 2 · 1/1 equipped");
+    });
+
+    test.each([
+        ["empty", []],
+        ["one companion", [{ key: "mossprout", quantity: 1 }]],
+        ["one full page", Object.keys(companions).slice(0, 10).map(key => ({ key, quantity: 1 }))],
+    ])("sends a %s collection with unique disabled navigation buttons", async (_label, owned) => {
+        const player = new Player("Test", "123", {}, owned);
+        vi.spyOn(Player, "get").mockResolvedValue(player);
+        const editReply = vi.fn(async payload => {
+            const buttons = payload.components[0].toJSON().components;
+            expect(new Set(buttons.map(button => button.custom_id)).size).toBe(buttons.length);
+            expect(buttons.map(button => button.disabled)).toEqual([true, true]);
+        });
+        const interaction = {
+            user: { id: "123" }, client: {}, options: { getSubcommand: () => "list" },
+            deferReply: vi.fn(), editReply,
+        } as unknown as ChatInputCommandInteraction;
+        await command.execute(interaction);
+        expect(editReply).toHaveBeenCalledOnce();
+        expect(editReply.mock.calls[0][0].embeds[0].data.title).toBe("Your companions");
     });
 
     test("equip checks ownership and reports result", async () => {

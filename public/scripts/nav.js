@@ -6,11 +6,13 @@ siteHeader.innerHTML = `
   <nav id="accountNav" class="account-nav" aria-label="Account navigation">
     <a id="loginLink" class="btn hidden" href="/auth/discord">Login with Discord</a>
     <span id="accountName" class="account-name hidden"></span>
+    <a id="homeTab" class="nav-link" href="/">Home</a>
     <a id="companionsTab" class="nav-link" href="/companions">Companions</a>
+    <a id="itemsTab" class="nav-link" href="/items">Items</a>
     <a id="wikiTab" class="nav-link" href="/wiki">Wiki</a>
     <div id="loggedInNav" class="logged-in-nav hidden">
-      <a id="leaderboardTab" class="nav-link" href="/">Leaderboard</a>
-      <a id="profileTab" class="nav-link" href="/?view=profile">Profile</a>
+      <a id="leaderboardTab" class="nav-link" href="/leaderboard">Leaderboard</a>
+      <a id="profileTab" class="nav-link" href="/leaderboard?view=profile">Profile</a>
       <a id="casinoTab" class="nav-link" href="/casino">Casino</a>
       <form action="/auth/logout" method="post">
         <button class="nav-link" type="submit">Log out</button>
@@ -20,9 +22,11 @@ siteHeader.innerHTML = `
 `;
 
 const navLinks = {
+  home: siteHeader.querySelector('#homeTab'),
   leaderboard: siteHeader.querySelector('#leaderboardTab'),
   profile: siteHeader.querySelector('#profileTab'),
   companions: siteHeader.querySelector('#companionsTab'),
+  items: siteHeader.querySelector('#itemsTab'),
   casino: siteHeader.querySelector('#casinoTab'),
   wiki: siteHeader.querySelector('#wikiTab')
 };
@@ -37,12 +41,18 @@ function setNavCurrent(name) {
   });
 }
 
-if (location.pathname.startsWith('/casino')) {
+if (location.pathname === '/') {
+  setNavCurrent('home');
+} else if (location.pathname.startsWith('/leaderboard')) {
+  setNavCurrent(new URLSearchParams(location.search).get('view') === 'profile' ? 'profile' : 'leaderboard');
+} else if (location.pathname.startsWith('/casino')) {
   setNavCurrent('casino');
 } else if (location.pathname.startsWith('/skills')) {
   setNavCurrent('profile');
 } else if (location.pathname.startsWith('/companions') || location.pathname.startsWith('/companion')) {
   setNavCurrent('companions');
+} else if (location.pathname.startsWith('/items') || location.pathname.startsWith('/item')) {
+  setNavCurrent('items');
 } else if (location.pathname.startsWith('/wiki')) {
   setNavCurrent('wiki');
 }

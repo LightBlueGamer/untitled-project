@@ -34,7 +34,7 @@ export default {
                 )
             );
             return interaction.reply({
-                content: `You can prestige to prestige level ${player.prestigeLevel+1} and earn a buff. This resets your XP, level, unlocked skills, and unspent skill points. Select a buff below to prestige!\n\n${buffs.map(buff => `**${buff.name}**: ${buff.description}`).join("\n")}`,
+                content: `You can prestige to prestige level ${player.prestigeLevel+1} and earn a buff and a random lootbox. This resets your XP, level, unlocked skills, and unspent skill points. Select a buff below to prestige!\n\n${buffs.map(buff => `**${buff.name}**: ${buff.description}`).join("\n")}`,
                 components: [actionRow],
                 flags: [MessageFlags.Ephemeral]
             });

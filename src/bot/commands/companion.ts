@@ -23,16 +23,16 @@ export function companionList(player: Player, requestedPage: number) {
     const embed = new EmbedBuilder().setTitle("Your companions").setDescription(description)
         .setFooter({ text: `Page ${page + 1} of ${pages} · ${player.equippedCompanions.length}/${player.companionSlots} equipped` });
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId(`companion_list:${player.id}:${Math.max(0, page - 1)}`)
+        new ButtonBuilder().setCustomId(`companion_list:${player.id}:${Math.max(0, page - 1)}:previous`)
             .setLabel("Previous").setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
-        new ButtonBuilder().setCustomId(`companion_list:${player.id}:${Math.min(pages - 1, page + 1)}`)
+        new ButtonBuilder().setCustomId(`companion_list:${player.id}:${Math.min(pages - 1, page + 1)}:next`)
             .setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(page === pages - 1),
     );
     return { embeds: [embed], components: [row] };
 }
 
 export async function handleCompanionListButton(interaction: ButtonInteraction): Promise<void> {
-    const match = /^companion_list:(\d+):(\d+)$/.exec(interaction.customId);
+    const match = /^companion_list:(\d+):(\d+)(?::(?:previous|next))?$/.exec(interaction.customId);
     if (!match || match[1] !== interaction.user.id) {
         await interaction.reply({ content: "This companion list is not yours.", flags: [MessageFlags.Ephemeral] });
         return;

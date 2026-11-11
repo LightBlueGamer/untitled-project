@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 
 class Element {
     textContent = "";
+    value = "";
     className = "";
     href = "";
     children: Element[] = [];
@@ -29,7 +30,10 @@ describe("companion circulation page", () => {
             button.dataset.sort = key;
             return button;
         });
-        const nodes: Record<string, Element> = { companionStatus: status, companionBody: body, companionRetry: retry };
+        const search = new Element();
+        const nodes: Record<string, Element> = {
+            companionStatus: status, companionBody: body, companionRetry: retry, companionSearch: search,
+        };
         const fetch = vi.fn()
             .mockResolvedValueOnce({ ok: false, status: 503 })
             .mockResolvedValueOnce({ ok: true, json: async () => ({ companions: [
@@ -61,6 +65,21 @@ describe("companion circulation page", () => {
         expect(buttons[2].header.setAttribute).toHaveBeenLastCalledWith("aria-sort", "descending");
         buttons[2].listeners.click();
         expect(body.children[0].children[0].textContent).toBe("old (retired)");
+        search.value = "ETERNAL";
+        search.listeners.input();
+        expect(body.children).toHaveLength(1);
+        expect(body.children[0].children[0].children[0].textContent).toBe("Auroragon");
+        expect(status.textContent).toBe("1 of 3 companion species");
+        search.value = "OLD";
+        search.listeners.input();
+        expect(body.children[0].children[0].textContent).toBe("old (retired)");
+        search.value = "moss";
+        search.listeners.input();
+        expect(body.children[0].children[0].children[0].textContent).toBe("Mossprout");
+        search.value = "does-not-exist";
+        search.listeners.input();
+        expect(body.children).toHaveLength(0);
+        expect(status.textContent).toBe("No companions match your search.");
     });
 
     test("wiki displays stats and small nonzero odds and reports errors", async () => {

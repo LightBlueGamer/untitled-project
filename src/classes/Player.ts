@@ -1,4 +1,5 @@
 import type { Client } from "discord.js";
+import type { PoolClient } from "pg";
 import { getCache, getPool } from "../database.js";
 import { PrestigeBuff } from "../resources/prestigeBuffs.js";
 import { EffectOperation, getSkill, type MessageSkill, type MessageSkillReward, type Skill, SkillEffect } from "../resources/skills.js";
@@ -15,6 +16,19 @@ const companionInventoryQuery = `COALESCE(
                       ORDER BY pc.companion_key)
      FROM player_companions pc WHERE pc.player_id = p.id), '[]'::jsonb)`;
 
+function progressionExperience(data: Partial<Data>): number {
+    let total = Math.max(0, data.experience ?? 0);
+    const prestige = Math.max(0, Math.floor(data.prestige ?? 0));
+    const level = Math.max(1, Math.floor(data.level ?? 1));
+    for (let cycle = 0; cycle <= prestige; cycle++) {
+        const cycleLevel = cycle === prestige ? level : 10 * 2 ** cycle;
+        for (let currentLevel = 1; currentLevel < cycleLevel; currentLevel++) {
+            total += Math.floor(25 + 15 * currentLevel + 50 * Math.pow(1.15, currentLevel - 1));
+        }
+    }
+    return total;
+}
+
 export class PlayerConflictError extends Error {
     constructor() {
         super("Player progression changed since it was loaded; reload before saving");
@@ -29,6 +43,7 @@ export default class Player {
     private savedSkills: string[];
     private savedSkillPoints: number;
     private savedPrestige: number;
+    private savedTotalExperience: number;
     private savedEquippedCompanions: string[];
     private requireSkillSnapshot = false;
     private resettingSkills = false;
@@ -46,12 +61,18 @@ export default class Player {
     ) {
         this.name = name;
         this.id = id;
-        this.data = { ...defaultPlayerData, ...data };
+        const savedTotalExperience = data.totalExperience ?? data.experience ?? defaultPlayerData.totalExperience;
+        this.data = {
+            ...defaultPlayerData,
+            ...data,
+            totalExperience: Math.max(savedTotalExperience, progressionExperience(data)),
+        };
         this.data.skills = [...this.data.skills];
         this.companionInventory = companions.map(companion => ({ ...companion }));
         this.savedSkills = [...this.data.skills];
         this.savedSkillPoints = this.data.skillPoints;
         this.savedPrestige = this.data.prestige;
+        this.savedTotalExperience = savedTotalExperience;
         this.savedEquippedCompanions = this.equippedCompanions;
     }
 
@@ -85,6 +106,7 @@ export default class Player {
         this.assertPositiveAmount(amount);
         const previousLevel = this.data.level;
         this.data.experience += amount;
+        this.data.totalExperience += amount;
         while (this.data.experience >= this.xpForNextLevel(this.data.level)) {
             this.data.experience -= this.xpForNextLevel(this.data.level);
             this.data.level += 1;
@@ -107,6 +129,18 @@ export default class Player {
             skillPointsGained,
             didLevelUp: levelsGained > 0,
         };
+    }
+
+    public addScavengeExperience(baseExperience: number): { experienceAwarded: number; progression: ExperienceResult } {
+        this.requireSkillSnapshot = true;
+        const experienceAwarded = Math.max(1, Math.floor(applyCompanionBonuses(
+            this.applySkills(
+                this.applySkills(baseExperience + this.data.prestigeExperienceFlat, SkillEffect.ScavengeExperience),
+                SkillEffect.Experience,
+            ) * this.experienceMultiplier,
+            "experience", this.activeCompanions,
+        )));
+        return { experienceAwarded, progression: this.addExperience(experienceAwarded) };
     }
 
     public assignRandomExperienceAndBalance(
@@ -246,6 +280,61 @@ export default class Player {
     public addPrestigeCompanionRarityBonus(amount: number): void {
         this.assertPositiveAmount(amount);
         this.data.prestigeCompanionRarityMultiplier += amount;
+    }
+
+    public get casinoPayoutMultiplier(): number {
+        return this.applySkills(1, SkillEffect.Casino)
+            * this.data.prestigeCasinoPayoutMultiplier
+            * applyCompanionBonuses(1, "casino", this.activeCompanions);
+    }
+
+    public get scavengeWeightMultiplier(): number {
+        return this.applySkills(1, SkillEffect.Scavenge);
+    }
+
+    public get scavengeCooldownMultiplier(): number {
+        return this.applySkills(1, SkillEffect.ScavengeCooldown);
+    }
+
+    public get scavengeRarityMultiplier(): number {
+        return this.applySkills(1, SkillEffect.ScavengeRarity);
+    }
+
+    public get scavengeExtraFindChance(): number {
+        return this.applySkills(0, SkillEffect.ScavengeFind);
+    }
+
+    public get toolSlots(): number {
+        return Math.max(1, Math.floor(this.applySkills(1, SkillEffect.ToolSlots)));
+    }
+
+    public get lootboxDropMultiplier(): number {
+        return this.applySkills(1, SkillEffect.LootboxDrop) * this.data.prestigeLootboxDropMultiplier;
+    }
+
+    public get lootboxRarityMultiplier(): number {
+        return this.applySkills(1, SkillEffect.LootboxRarity) * this.data.prestigeLootboxRarityMultiplier;
+    }
+
+    public get lootboxRewardMultiplier(): number {
+        return this.applySkills(1, SkillEffect.LootboxReward) * this.data.prestigeLootboxRewardMultiplier;
+    }
+
+    public get lootboxFindMultiplier(): number {
+        return this.applySkills(1, SkillEffect.LootboxFind) * this.data.prestigeLootboxFindMultiplier;
+    }
+
+    public addPrestigeLootboxBonus(kind: "drop" | "rarity" | "reward" | "find", amount: number): void {
+        this.assertPositiveAmount(amount);
+        if (kind === "drop") this.data.prestigeLootboxDropMultiplier += amount;
+        else if (kind === "rarity") this.data.prestigeLootboxRarityMultiplier += amount;
+        else if (kind === "reward") this.data.prestigeLootboxRewardMultiplier += amount;
+        else this.data.prestigeLootboxFindMultiplier += amount;
+    }
+
+    public addPrestigeCasinoPayoutBonus(amount: number): void {
+        this.assertPositiveAmount(amount);
+        this.data.prestigeCasinoPayoutMultiplier += amount;
     }
 
     public get prestigeInfo(): PrestigeInfo {
@@ -416,6 +505,10 @@ export default class Player {
             equippedCompanions: this.equippedCompanions,
             companionSlots: this.companionSlots,
             companions: this.companions,
+            scavengeWeightMultiplier: this.scavengeWeightMultiplier,
+            scavengeRarityMultiplier: this.scavengeRarityMultiplier,
+            scavengeExtraFindChance: this.scavengeExtraFindChance,
+            toolSlots: this.toolSlots,
         };
     }
 
@@ -439,9 +532,8 @@ export default class Player {
         }
     }
 
-    public static async findById(id: string): Promise<Player | null> {
-        const pool = getPool();
-        const dbClient = await pool.connect();
+    public static async findById(id: string, transactionClient?: PoolClient): Promise<Player | null> {
+        const dbClient = transactionClient ?? await getPool().connect();
 
         try {
             const result = await dbClient.query<{ data: StoredPlayerData; companions: OwnedCompanion[] }>(
@@ -456,7 +548,7 @@ export default class Player {
             const player = new Player(name ?? id, id, data, result.rows[0].companions);
             return player;
         } finally {
-            dbClient.release();
+            if (!transactionClient) dbClient.release();
         }
     }
 
@@ -515,11 +607,18 @@ export default class Player {
                 newPlayer.data = {
                     ...defaultPlayerData,
                     ...data,
+                    totalExperience: Math.max(
+                        data.totalExperience ?? data.experience ?? defaultPlayerData.totalExperience,
+                        progressionExperience(data),
+                    ),
                 };
                 newPlayer.companionInventory = existingPlayer.companions.map(companion => ({ ...companion }));
                 newPlayer.savedSkills = [...newPlayer.data.skills];
                 newPlayer.savedSkillPoints = newPlayer.data.skillPoints;
                 newPlayer.savedPrestige = newPlayer.data.prestige;
+                newPlayer.savedTotalExperience = existingPlayer.data.totalExperience
+                    ?? existingPlayer.data.experience
+                    ?? defaultPlayerData.totalExperience;
                 newPlayer.savedEquippedCompanions = newPlayer.equippedCompanions;
             }
         } finally {
@@ -530,13 +629,13 @@ export default class Player {
         return newPlayer;
     }
 
-    public async save(): Promise<void> {
-        const pool = getPool();
-        const dbClient = await pool.connect();
+    public async save(transactionClient?: PoolClient): Promise<void> {
+        const dbClient = transactionClient ?? await getPool().connect();
 
         try {
             const skillsChanged = this.resettingSkills || JSON.stringify(this.data.skills) !== JSON.stringify(this.savedSkills);
             const pointsChanged = this.resettingSkills || this.data.skillPoints !== this.savedSkillPoints;
+            const totalExperienceChanged = this.data.totalExperience !== this.savedTotalExperience;
             const result = await dbClient.query<{ data: StoredPlayerData }>(
                 `INSERT INTO players (id, data)
                  VALUES ($1, $2)
@@ -551,10 +650,15 @@ export default class Player {
                           'equippedCompanion', COALESCE(EXCLUDED.data->'equippedCompanion', 'null'::jsonb))
                         ELSE jsonb_build_object('equippedCompanions', ${equipmentSQL},
                           'equippedCompanion', COALESCE(${equipmentSQL}->0, 'null'::jsonb)) END
+                     || CASE WHEN $11::boolean THEN '{}'::jsonb
+                          ELSE jsonb_build_object('totalExperience',
+                              COALESCE((players.data->>'totalExperience')::numeric,
+                                       (players.data->>'experience')::numeric, 0)) END
                  WHERE (NOT ($3::boolean OR $7::boolean) OR COALESCE(players.data->'skills', '[]'::jsonb) = $5::jsonb)
                    AND (NOT $4::boolean OR COALESCE(players.data->'skillPoints', '0'::jsonb) = $6::jsonb)
                    AND COALESCE((players.data->>'prestige')::numeric, 0) = $8::numeric
                    AND (NOT $7::boolean OR ${equipmentSQL} = $9::jsonb)
+                   AND (NOT $11::boolean OR COALESCE((players.data->>'totalExperience')::numeric, (players.data->>'experience')::numeric, 0) = $12::numeric)
                  RETURNING data`,
                 [
                     this.id,
@@ -567,6 +671,8 @@ export default class Player {
                     this.savedPrestige,
                     JSON.stringify(this.savedEquippedCompanions),
                     this.resettingSkills,
+                    totalExperienceChanged,
+                    this.savedTotalExperience,
                 ],
             );
             if (!result.rows[0]) {
@@ -578,14 +684,15 @@ export default class Player {
             this.savedSkills = [...this.data.skills];
             this.savedSkillPoints = this.data.skillPoints;
             this.savedPrestige = this.data.prestige;
+            this.savedTotalExperience = this.data.totalExperience;
             this.savedEquippedCompanions = this.equippedCompanions;
             this.requireSkillSnapshot = false;
             this.resettingSkills = false;
         } finally {
-            dbClient.release();
+            if (!transactionClient) dbClient.release();
         }
 
-        await Player.invalidate(this.id);
+        if (!transactionClient) await Player.invalidate(this.id);
     }
 
     public static async invalidate(id: string): Promise<void> {
@@ -632,6 +739,7 @@ interface StoredPlayerData extends Partial<Data> {
 export interface Data {
     balance: number;
     experience: number;
+    totalExperience: number;
     level: number;
     prestige: number;
     experienceMultiplier: number;
@@ -640,6 +748,11 @@ export interface Data {
     prestigeBalanceFlat: number;
     prestigeCompanionSpawnMultiplier: number;
     prestigeCompanionRarityMultiplier: number;
+    prestigeCasinoPayoutMultiplier: number;
+    prestigeLootboxDropMultiplier: number;
+    prestigeLootboxRarityMultiplier: number;
+    prestigeLootboxRewardMultiplier: number;
+    prestigeLootboxFindMultiplier: number;
     skills: string[];
     skillPoints: number;
     equippedCompanion: string | null;
@@ -657,11 +770,16 @@ export interface PlayerResponse extends Data {
     name: string;
     companions: readonly OwnedCompanion[];
     companionSlots: number;
+    scavengeWeightMultiplier: number;
+    scavengeRarityMultiplier: number;
+    scavengeExtraFindChance: number;
+    toolSlots: number;
 }
 
 export const defaultPlayerData: Data = {
     balance: 0,
     experience: 0,
+    totalExperience: 0,
     level: 1,
     prestige: 0,
     experienceMultiplier: 1.00,
@@ -670,6 +788,11 @@ export const defaultPlayerData: Data = {
     prestigeBalanceFlat: 0,
     prestigeCompanionSpawnMultiplier: 1,
     prestigeCompanionRarityMultiplier: 1,
+    prestigeCasinoPayoutMultiplier: 1,
+    prestigeLootboxDropMultiplier: 1,
+    prestigeLootboxRarityMultiplier: 1,
+    prestigeLootboxRewardMultiplier: 1,
+    prestigeLootboxFindMultiplier: 1,
     skills: [],
     skillPoints: 0,
     equippedCompanion: null,

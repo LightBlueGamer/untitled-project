@@ -26,7 +26,7 @@ describe("player skill persistence", () => {
         }] });
         player.addBalance(10);
         await player.save();
-        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([false, false, "[]", "3", false, 0, "[]", false]);
+        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([false, false, "[]", "3", false, 0, "[]", false, false, 0]);
         expect(player.skills).toEqual(["experience_gain_1"]);
         expect(player.skillPoints).toBe(2);
         expect(mocks.del).toHaveBeenCalledWith("player:1");
@@ -38,7 +38,7 @@ describe("player skill persistence", () => {
         player.skills = ["experience_gain_1"];
         mocks.query.mockResolvedValue({ rows: [] });
         await expect(player.save()).rejects.toBeInstanceOf(PlayerConflictError);
-        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([true, true, "[]", "3", false, 0, "[]", false]);
+        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([true, true, "[]", "3", false, 0, "[]", false, false, 0]);
         expect(mocks.release).toHaveBeenCalled();
     });
 
@@ -60,6 +60,75 @@ describe("player skill persistence", () => {
         expect(result.levelsGained).toBeGreaterThan(1);
         expect(result.skillPointsGained).toBe(result.levelsGained);
         expect(player.skillPoints).toBe(2 + result.levelsGained);
+    });
+
+    test("tracks lifetime experience across levels and prestige", () => {
+        const player = new Player("Test", "1", { level: 10, experience: 20 });
+        const cumulativeRequirement = (level: number) => Math.floor(
+            25 + 15 * level + 50 * Math.pow(1.15, level - 1),
+        );
+        const requiredForLevelTen = Array.from({ length: 9 }, (_, i) => cumulativeRequirement(i + 1))
+            .reduce((sum, amount) => sum + amount, 0);
+        expect(player.toJSON().totalExperience).toBe(requiredForLevelTen + 20);
+        player.addExperience(100);
+        expect(player.toJSON().totalExperience).toBe(requiredForLevelTen + 120);
+        player.prestige();
+        expect(player.experience).toBe(0);
+        expect(player.toJSON().totalExperience).toBe(requiredForLevelTen + 120);
+    });
+
+    test("includes experience required for each prior prestige and current level", () => {
+        const player = new Player("Test", "1", { prestige: 2, level: 3, experience: 40 });
+        const cumulativeRequirement = (level: number) => Math.floor(
+            25 + 15 * level + 50 * Math.pow(1.15, level - 1),
+        );
+        const expected = Array.from({ length: 9 }, (_, i) => cumulativeRequirement(i + 1))
+            .concat(Array.from({ length: 19 }, (_, i) => cumulativeRequirement(i + 1)))
+            .concat(cumulativeRequirement(1), cumulativeRequirement(2), 40)
+            .reduce((sum, amount) => sum + amount, 0);
+
+        expect(player.toJSON().totalExperience).toBe(expected);
+    });
+
+    test("stacks equipped casino companions, casino skills, and permanent prestige bonuses", () => {
+        const player = new Player("Test", "1", {
+            skills: ["house_edge_1", "house_edge_2"],
+            equippedCompanions: ["vaultstag", "fatefeather"],
+            prestigeCasinoPayoutMultiplier: 1.03,
+        });
+
+        expect(player.casinoPayoutMultiplier).toBeCloseTo(1.05 * 1.08 * 1.05 * 1.04 * 1.03);
+    });
+
+    test("preserves higher stored totals and persists a reconstructed legacy baseline", async () => {
+        const cumulativeRequirement = (level: number) => Math.floor(
+            25 + 15 * level + 50 * Math.pow(1.15, level - 1),
+        );
+        const requiredForLevelTen = Array.from({ length: 9 }, (_, i) => cumulativeRequirement(i + 1))
+            .reduce((sum, amount) => sum + amount, 0);
+        const player = new Player("Test", "1", {
+            level: 10,
+            experience: 20,
+            totalExperience: requiredForLevelTen + 500,
+        });
+        expect(player.toJSON().totalExperience).toBe(requiredForLevelTen + 500);
+
+        const legacyPlayer = new Player("Legacy", "2", { level: 10, experience: 20 });
+        mocks.query.mockResolvedValue({ rows: [{ data: { ...legacyPlayer.toJSON(), name: "Legacy" } }] });
+        await legacyPlayer.save();
+        expect(mocks.query.mock.calls[0][1].slice(10)).toEqual([true, 20]);
+    });
+
+    test("rejects stale lifetime XP writes so concurrent rewards can retry", async () => {
+        const player = new Player("Test", "1");
+        player.addExperience(10);
+        mocks.query.mockResolvedValue({ rows: [] });
+
+        await expect(player.save()).rejects.toBeInstanceOf(PlayerConflictError);
+
+        const [sql, parameters] = mocks.query.mock.calls[0];
+        expect(sql).toContain("players.data->>'totalExperience'");
+        expect(parameters.slice(10)).toEqual([true, 0]);
     });
 
     test("applies skill bonuses per level, additive before multiplier", () => {
@@ -135,7 +204,7 @@ describe("player skill persistence", () => {
         player.prestige();
         mocks.query.mockResolvedValue({ rows: [] });
         await expect(player.save()).rejects.toBeInstanceOf(PlayerConflictError);
-        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([true, true, "[]", "0", true, 0, "[]", true]);
+        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([true, true, "[]", "0", true, 0, "[]", true, true, 0]);
     });
 
     test("chat rewards guard against stale skill and prestige snapshots", async () => {
@@ -143,6 +212,6 @@ describe("player skill persistence", () => {
         player.assignRandomExperienceAndBalance();
         mocks.query.mockResolvedValue({ rows: [] });
         await expect(player.save()).rejects.toBeInstanceOf(PlayerConflictError);
-        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([false, false, "[]", "0", true, 2, "[]", false]);
+        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([false, false, "[]", "0", true, 2, "[]", false, true, 0]);
     });
 });

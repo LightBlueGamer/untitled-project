@@ -15,10 +15,15 @@
             <div class="eyebrow">Creature records</div>
             <h1>Companion circulation</h1>
           </div>
-          <a class="btn" href="/wiki">Read the game guide</a>
+          <div class="hero-links">
+            <a class="btn" href="/items">Browse items</a>
+            <a class="btn" href="/wiki">Read the game guide</a>
+          </div>
         </div>
         <div class="panel">
           <div class="toolbar">
+            <label for="companionSearch">Search</label>
+            <input id="companionSearch" class="search" type="search" placeholder="Search by name, key, or rarity">
             <span id="companionStatus" class="status" role="status" aria-live="polite">Loading companion records…</span>
             <button id="companionRetry" class="btn hidden" type="button">Retry</button>
           </div>

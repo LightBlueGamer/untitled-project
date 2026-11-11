@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Item Catalog | Prestigious Ledger</title>
+    <link rel="stylesheet" href="/styles/main.css">
+  </head>
+  <body>
+    <div class="wrap companion-wrap">
+      <header id="siteHeader"></header>
+      <main>
+        <div class="hero">
+          <div>
+            <div class="eyebrow">Scavenging and crafting</div>
+            <h1>Item catalog</h1>
+            <p>Browse item types, rarities, prices, chances, recipes, and tool bonuses.</p>
+          </div>
+          <a class="btn" href="/wiki">Read the game guide</a>
+        </div>
+        <div class="panel">
+          <div class="toolbar">
+            <label for="itemSearch">Search</label>
+            <input id="itemSearch" class="search" type="search" placeholder="Search by name, key, category, or rarity">
+            <label for="itemCategory">Category</label>
+            <select id="itemCategory" class="search">
+              <option value="">All categories</option>
+            </select>
+            <span id="itemStatus" class="status" role="status" aria-live="polite">Loading items…</span>
+            <button id="itemRetry" class="btn hidden" type="button">Retry</button>
+          </div>
+          <div class="table-wrap">
+            <table class="companion-table item-table">
+              <thead><tr>
+                <th scope="col" data-sort="name"><button type="button" class="sort-button" data-sort="name">Item <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" data-sort="category"><button type="button" class="sort-button" data-sort="category">Category <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" data-sort="rarity"><button type="button" class="sort-button" data-sort="rarity">Rarity <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" data-sort="price"><button type="button" class="sort-button" data-sort="price">Price <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" data-sort="odds"><button type="button" class="sort-button" data-sort="odds">Chance (1 in X) <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" data-sort="circulation"><button type="button" class="sort-button" data-sort="circulation">In circulation <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" data-sort="source"><button type="button" class="sort-button" data-sort="source">Source <span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+              </tr></thead>
+              <tbody id="itemBody"></tbody>
+            </table>
+          </div>
+          <p class="status">Approximate odds per search, based on current circulation with no tools or bonuses. Your actual odds may differ.</p>
+        </div>
+      </main>
+    </div>
+    <script src="/scripts/nav.js"></script>
+    <script src="/scripts/items.js"></script>
+  </body>
+</html>

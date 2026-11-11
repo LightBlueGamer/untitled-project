@@ -1,7 +1,7 @@
 import { Rarity } from "./rarities.js";
 import type { Companion, CompanionBonus } from "./companions.js";
 
-type Specialty = "xp" | "xpFlat" | "money" | "moneyFlat" | "finder" | "points";
+type Specialty = "xp" | "xpFlat" | "money" | "moneyFlat" | "finder" | "points" | "casino";
 type Creature = readonly [name: string, story: string, specialty: Specialty];
 
 const creatures: Readonly<Record<Rarity, readonly Creature[]>> = {
@@ -26,6 +26,7 @@ const creatures: Readonly<Record<Rarity, readonly Creature[]>> = {
         ["Lichenling", "A gentle pebble creature wearing a lichen cloak.", "money"],
         ["Rippletail", "A playful tadpole that races its own ripples.", "xpFlat"],
         ["Snugglemole", "A burrowing mole that hoards warm blankets.", "finder"],
+        ["Pennybadger", "A careful badger that keeps a lucky coin tucked in its den.", "casino"],
     ],
     [Rarity.Uncommon]: [
         ["Coppercurl", "A coiled lizard that polishes forgotten coins.", "money"],
@@ -48,6 +49,7 @@ const creatures: Readonly<Record<Rarity, readonly Creature[]>> = {
         ["Petaldrift", "A floating blossom that wanders with the breeze.", "xp"],
         ["Runnelotter", "An energetic otter that knows every stream.", "finder"],
         ["Saffronnewt", "A golden newt that basks on warm stones.", "xpFlat"],
+        ["Copperscale", "A bright-scaled lizard that spots favorable wagers.", "casino"],
     ],
     [Rarity.Rare]: [
         ["Moonglade", "A silver stag that appears in moonlit clearings.", "xp"],
@@ -70,6 +72,7 @@ const creatures: Readonly<Record<Rarity, readonly Creature[]>> = {
         ["Silverstoat", "A silver-furred hunter with a keen eye for treasure.", "money"],
         ["Glacierpup", "A playful pup born beneath a glacier.", "xpFlat"],
         ["Thornoracle", "A watchful creature nesting in ancient brambles.", "finder"],
+        ["Fatefeather", "A raven whose carefully chosen flights seem to turn the odds.", "casino"],
     ],
     [Rarity.Epic]: [
         ["Runeforge", "A small golem carved with moving runes.", "points"],
@@ -92,6 +95,7 @@ const creatures: Readonly<Record<Rarity, readonly Creature[]>> = {
         ["Sunstonecub", "A bear cub with a warm gemstone heart.", "moneyFlat"],
         ["Nightbloom", "A rare flower beast that wakes beneath the moon.", "xp"],
         ["Echoibis", "A long-beaked wanderer whose calls reveal hidden paths.", "finder"],
+        ["Vaultstag", "A regal stag that guards its herd's winnings.", "casino"],
     ],
     [Rarity.Legendary]: [
         ["Dawnphoenix", "A dawn-lit phoenix that rekindles fading hope.", "xp"],
@@ -114,6 +118,7 @@ const creatures: Readonly<Record<Rarity, readonly Creature[]>> = {
         ["Pearlkraken", "A many-armed guardian of a luminous pearl vault.", "moneyFlat"],
         ["Cometmane", "A swift lion trailing a comet's brilliant tail.", "xp"],
         ["Viridianwyrm", "A verdant dragon that shelters hidden groves.", "finder"],
+        ["Luckwyrm", "A sky serpent that curls around a winning streak.", "casino"],
     ],
     [Rarity.Mythic]: [
         ["Astralwhale", "A whale that sings between distant constellations.", "xp"],
@@ -136,6 +141,7 @@ const creatures: Readonly<Record<Rarity, readonly Creature[]>> = {
         ["Deepstar", "A star-shaped voyager from the deepest cosmic sea.", "moneyFlat"],
         ["Equinoxwolf", "A wolf that appears when day and night balance.", "xp"],
         ["Veilstrider", "A long-legged wanderer passing through hidden veils.", "finder"],
+        ["Fortunox", "An ancient ox whose measured steps bring luck to high-stakes tables.", "casino"],
     ],
     [Rarity.Eternal]: [
         ["Aeonwarden", "An ageless sentinel guarding the first sunrise.", "points"],
@@ -158,6 +164,7 @@ const creatures: Readonly<Record<Rarity, readonly Creature[]>> = {
         ["Worldshaper", "A giant artisan molding worlds from stardust.", "moneyFlat"],
         ["Chronosage", "An ageless tutor who shares lessons across time.", "points"],
         ["Omnistar", "A bright wanderer carrying a universe of tiny stars.", "xp"],
+        ["Jackpotitan", "A legendary titan whose presence brightens every house-game payout.", "casino"],
     ],
 };
 
@@ -195,6 +202,13 @@ function specialtyBonus(specialty: Specialty, level: number): { bonus: Companion
         }
         case "points":
             return { bonus: { type: "skillPointsFlat", amount: 1 }, text: "Grants one extra skill point per level." };
+        case "casino": {
+            const percent = 2 + level;
+            return {
+                bonus: { type: "casinoPayoutMultiplier", multiplier: 1 + percent / 100 },
+                text: `Increases payouts in house casino games by ${percent}%.`,
+            };
+        }
     }
 }
 
@@ -210,7 +224,7 @@ export function createAdditionalCompanions(): Record<string, Companion> {
                 name,
                 description: `${story} ${text}`,
                 rarity,
-                chanceWeight: Math.floor(weight * (20 - index) / 20),
+                chanceWeight: Math.max(1, Math.floor(weight * (20 - index) / 20)),
                 stats: {
                     HP: 38 + level * 10 + (index * 7) % 25,
                     DMG: 12 + level * 7 + (index * 5) % 17,

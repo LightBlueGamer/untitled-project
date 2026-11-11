@@ -19,6 +19,8 @@ describe("help command", () => {
         expect(embed.data.fields.map((field: { name: string }) => field.name)).toEqual([
             "Progression",
             "Companions",
+            "Scavenging",
+            "Lootboxes",
         ]);
     });
 

@@ -42,7 +42,7 @@ function binomial(rows: number, slot: number): number {
 }
 
 // Scales the payouts so the expected return is the target, then rounds down so the house edge never shrinks.
-function plinkoMultipliers(rows: number, risk: PlinkoRisk): number[] {
+export function plinkoMultipliers(rows: number, risk: PlinkoRisk, casinoPayoutMultiplier = 1): number[] {
     const { exponent } = PLINKO_RISKS[risk];
     // The top payout grows linearly from 25% of the risk's max at the fewest rows to 100% at the most rows.
     const rowFactor =
@@ -62,9 +62,17 @@ function plinkoMultipliers(rows: number, risk: PlinkoRisk): number[] {
     const scale = (max - PLINKO_TARGET_RETURN) / (1 - expectedShape);
     const floor = max - scale;
 
-    return shape.map(
-        (value) => Math.floor((floor + scale * value) * 100) / 100,
-    );
+    return shape.map((value) => {
+        const baseMultiplier = floor + scale * value;
+        const adjustedMultiplier = baseMultiplier > 1
+            ? 1 + (baseMultiplier - 1) * casinoPayoutMultiplier
+            : baseMultiplier;
+        return Math.floor(adjustedMultiplier * 100) / 100;
+    });
+}
+
+export function applyHousePayoutBonus(payout: number, bet: number, multiplier: number): number {
+    return payout > bet ? bet + Math.floor((payout - bet) * multiplier) : payout;
 }
 
 const casinoRouter = Router();
@@ -204,20 +212,19 @@ async function currentBalance(userId: string): Promise<number> {
 }
 
 casinoRouter.get("/balance", async (_request, response) => {
-    const result = await getPool().query<{ balance: string }>(
-        `SELECT data->>'balance' AS balance FROM players WHERE id = $1`,
-        [response.locals.userId],
-    );
-
-    if (result.rowCount === 0) {
+    const player = await Player.findById(response.locals.userId);
+    if (!player) {
         response.status(404).json({ error: "Player not found" });
         return;
     }
 
-    response.json({ balance: Number(result.rows[0].balance) });
+    response.json({
+        balance: player.balance,
+        casinoPayoutMultiplier: player.casinoPayoutMultiplier,
+    });
 });
 
-casinoRouter.get("/plinko", (request, response) => {
+casinoRouter.get("/plinko", async (request, response) => {
     const rows = Number(request.query.rows);
     const risk = request.query.risk;
     if (!isRows(rows) || !isRisk(risk)) {
@@ -225,7 +232,18 @@ casinoRouter.get("/plinko", (request, response) => {
         return;
     }
 
-    response.json({ rows, risk, multipliers: plinkoMultipliers(rows, risk) });
+    const player = await Player.findById(response.locals.userId);
+    if (!player) {
+        response.status(404).json({ error: "Player not found" });
+        return;
+    }
+
+    response.json({
+        rows,
+        risk,
+        casinoPayoutMultiplier: player.casinoPayoutMultiplier,
+        multipliers: plinkoMultipliers(rows, risk, player.casinoPayoutMultiplier),
+    });
 });
 
 casinoRouter.post("/plinko", async (request, response) => {
@@ -257,8 +275,18 @@ casinoRouter.post("/plinko", async (request, response) => {
         return;
     }
 
-    const multipliers = plinkoMultipliers(rows, risk);
     const userId: string = response.locals.userId;
+    const player = await Player.findById(userId);
+    if (!player) {
+        response.status(404).json({ error: "Player not found" });
+        return;
+    }
+    const casinoPayoutMultiplier = player.casinoPayoutMultiplier;
+    const multipliers = plinkoMultipliers(rows, risk, casinoPayoutMultiplier);
+    if (!Number.isSafeInteger(Math.floor(totalBet * Math.max(...multipliers)))) {
+        response.status(400).json({ error: "Potential payout is too large" });
+        return;
+    }
     const drops = Array.from({ length: balls }, () => {
         const path = Array.from({ length: rows }, () => randomInt(2));
         const slot = path.reduce<number>((sum, step) => sum + step, 0);
@@ -299,6 +327,7 @@ casinoRouter.post("/plinko", async (request, response) => {
     response.json({
         drops,
         multipliers,
+        casinoPayoutMultiplier,
         totalBet,
         totalPayout,
         balance: Number(result.rows[0].balance),
@@ -403,8 +432,24 @@ casinoRouter.post("/bills", async (request, response) => {
     }
 
     const userId: string = response.locals.userId;
+    const player = await Player.findById(userId);
+    if (!player) {
+        response.status(404).json({ error: "Player not found" });
+        return;
+    }
+    if (!Number.isSafeInteger(applyHousePayoutBonus(
+        winnings,
+        stake,
+        player.casinoPayoutMultiplier,
+    ))) {
+        response.status(400).json({ error: "Potential payout is too large" });
+        return;
+    }
+
     const game = simulateBills(players);
-    const payout = game.winner === 0 ? winnings : 0;
+    const payout = game.winner === 0
+        ? applyHousePayoutBonus(winnings, stake, player.casinoPayoutMultiplier)
+        : 0;
 
     const nameRows = await getPool().query<{ name: string }>(
         `SELECT data->>'name' AS name
@@ -449,6 +494,7 @@ casinoRouter.post("/bills", async (request, response) => {
         stake,
         pot,
         multiplier,
+        casinoPayoutMultiplier: player.casinoPayoutMultiplier,
         payout,
         balance: Number(result.rows[0].balance),
     });
@@ -467,6 +513,7 @@ interface BlackjackState {
     bet: number;
     player: Card[];
     dealer: Card[];
+    casinoPayoutMultiplier?: number;
 }
 
 const blackjackKey = (userId: string) => `blackjack:${userId}`;
@@ -521,6 +568,7 @@ function blackjackView(state: BlackjackState, balance: number, outcome?: Outcome
         canDouble: !finished && state.player.length === 2,
         outcome,
         payout,
+        casinoPayoutMultiplier: state.casinoPayoutMultiplier ?? 1,
         balance,
     };
 }
@@ -563,6 +611,8 @@ async function settleBlackjack(userId: string, state: BlackjackState, busted: bo
             payout = state.bet;
         }
     }
+
+    payout = applyHousePayoutBonus(payout, state.bet, state.casinoPayoutMultiplier ?? 1);
 
     await getCache().del(blackjackKey(userId));
     await recordBets(userId, "blackjack", [{ bet: state.bet, payout }]);
@@ -609,6 +659,16 @@ casinoRouter.post("/blackjack/start", async (request, response) => {
         return;
     }
 
+    const player = await Player.findById(userId);
+    if (!player) {
+        response.status(404).json({ error: "Player not found" });
+        return;
+    }
+    if (!Number.isSafeInteger(Math.floor(bet * 2.5 * player.casinoPayoutMultiplier))) {
+        response.status(400).json({ error: "Potential payout is too large" });
+        return;
+    }
+
     const balance = await adjustBalance(userId, -bet, bet);
     if (balance === null) {
         const exists = await Player.exists(userId);
@@ -622,6 +682,7 @@ casinoRouter.post("/blackjack/start", async (request, response) => {
         bet,
         player: [drawCard(), drawCard()],
         dealer: [drawCard(), drawCard()],
+        casinoPayoutMultiplier: player.casinoPayoutMultiplier,
     };
 
     try {
@@ -654,6 +715,10 @@ casinoRouter.post("/blackjack/action", async (request, response) => {
     if (action === "double") {
         if (state.player.length !== 2) {
             response.status(400).json({ error: "You can only double on your first move" });
+            return;
+        }
+        if (!Number.isSafeInteger(Math.floor(state.bet * 2 * 2.5 * (state.casinoPayoutMultiplier ?? 1)))) {
+            response.status(400).json({ error: "Potential payout is too large" });
             return;
         }
         const balance = await adjustBalance(userId, -state.bet, state.bet);

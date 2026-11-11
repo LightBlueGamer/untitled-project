@@ -42,6 +42,17 @@ export enum SkillEffect {
     Skill = "skill",
     CompanionSpawn = "companionSpawn",
     CompanionRarity = "companionRarity",
+    Casino = "casino",
+    Scavenge = "scavenge",
+    ScavengeCooldown = "scavengeCooldown",
+    ScavengeRarity = "scavengeRarity",
+    ScavengeFind = "scavengeFind",
+    ScavengeExperience = "scavengeExperience",
+    ToolSlots = "toolSlots",
+    LootboxDrop = "lootboxDrop",
+    LootboxRarity = "lootboxRarity",
+    LootboxReward = "lootboxReward",
+    LootboxFind = "lootboxFind",
 }
 
 export enum EffectOperation {
@@ -380,6 +391,119 @@ const companion_bond: Skill = {
     operation: EffectOperation.Add, skill: amount => amount + 1,
 };
 
+const house_edge_1: Skill = {
+    id: 29,
+    name: "House Negotiator",
+    description: "Increases winning payouts in Plinko, Blackjack, Pass the Bills, and solo poker against the house by 5%; losses and multiplayer games are unaffected.",
+    prerequisites: [nest_egg],
+    cost: 5,
+    effect: SkillEffect.Casino,
+    operation: EffectOperation.Multiply,
+    skill: amount => amount * 1.05,
+};
+
+const house_edge_2: Skill = {
+    id: 30,
+    name: "Lucky Table",
+    description: "Further increases winning payouts in Plinko, Blackjack, Pass the Bills, and solo poker against the house by 8%; losses and multiplayer games are unaffected.",
+    prerequisites: [house_edge_1],
+    cost: 8,
+    effect: SkillEffect.Casino,
+    operation: EffectOperation.Multiply,
+    skill: amount => amount * 1.08,
+};
+
+const scavenging_efficiency: Skill = {
+    id: 31,
+    name: "Scavenging Efficiency",
+    description: "Reduces the five-minute scavenging cooldown by 15%.",
+    prerequisites: [field_notes],
+    cost: 2,
+    effect: SkillEffect.ScavengeCooldown,
+    operation: EffectOperation.Multiply,
+    skill: amount => amount * 0.85,
+};
+
+const rare_finder: Skill = {
+    id: 32,
+    name: "Rare Finder",
+    description: "Increases the weight of Rare and higher items while scavenging by 20%.",
+    prerequisites: [scavenging_efficiency],
+    cost: 4,
+    effect: SkillEffect.ScavengeRarity,
+    operation: EffectOperation.Multiply,
+    skill: amount => amount * 1.2,
+};
+
+const extra_find: Skill = {
+    id: 33,
+    name: "Extra Find",
+    description: "Adds a 5% chance to receive an extra item when scavenging.",
+    prerequisites: [scavenging_efficiency],
+    cost: 4,
+    effect: SkillEffect.ScavengeFind,
+    operation: EffectOperation.Add,
+    skill: amount => amount + 0.05,
+};
+
+const tool_mastery: Skill = {
+    id: 34,
+    name: "Tool Mastery",
+    description: "Allows you to equip one additional scavenging tool.",
+    prerequisites: [rare_finder, extra_find],
+    cost: 8,
+    effect: SkillEffect.ToolSlots,
+    operation: EffectOperation.Add,
+    skill: amount => amount + 1,
+};
+
+const scavenging_experience: Skill = {
+    id: 35,
+    name: "Seasoned Scavenger",
+    description: "Increases experience earned from scavenging by 25%.",
+    prerequisites: [extra_find],
+    cost: 5,
+    effect: SkillEffect.ScavengeExperience,
+    operation: EffectOperation.Multiply,
+    skill: amount => amount * 1.25,
+};
+
+const scavenging_experience_2: Skill = {
+    id: 36,
+    name: "Seasoned Scavenger II",
+    description: "Further increases experience earned from scavenging by 35%, stacking with Seasoned Scavenger.",
+    prerequisites: [scavenging_experience],
+    cost: 8,
+    effect: SkillEffect.ScavengeExperience,
+    operation: EffectOperation.Multiply,
+    skill: amount => amount * 1.35,
+};
+
+const box_hunter: Skill = {
+    id: 37, name: "Box Hunter",
+    description: "Increases the chance of a message lootbox by 25%.",
+    prerequisites: [field_notes], cost: 4, effect: SkillEffect.LootboxDrop,
+    operation: EffectOperation.Multiply, skill: amount => amount * 1.25,
+};
+const box_fortune: Skill = {
+    id: 38, name: "Box Fortune",
+    description: "Increases higher-rarity lootbox weights by 25% per rarity tier.",
+    prerequisites: [box_hunter], cost: 5, effect: SkillEffect.LootboxRarity,
+    operation: EffectOperation.Multiply, skill: amount => amount * 1.25,
+};
+const box_treasures: Skill = {
+    id: 39, name: "Box Treasures",
+    description: "Increases higher-rarity item and companion weights by 30% per rarity tier when opening lootboxes.",
+    prerequisites: [box_fortune], cost: 7, effect: SkillEffect.LootboxReward,
+    operation: EffectOperation.Multiply, skill: amount => amount * 1.3,
+};
+const box_recovery: Skill = {
+    id: 40, name: "Treasure Recovery",
+    description: "Increases item and companion reward weights by 30% relative to boosts when opening a lootbox.",
+    prerequisites: [box_treasures], cost: 8, effect: SkillEffect.LootboxFind,
+    operation: EffectOperation.Multiply, skill: amount => amount * 1.3,
+};
+
 export function companionSkillMultiplier(keys: readonly string[], effect: SkillEffect.CompanionSpawn | SkillEffect.CompanionRarity): number {
     return keys.reduce((amount, key) => {
         const skill = getSkill(key);
@@ -410,6 +534,18 @@ export const skills = {
     golden_breakthrough,
     deep_focus, steady_study, nest_egg, windfall, field_notes, keen_senses, lucky_trails, rare_insight,
     companion_bond,
+    house_edge_1,
+    house_edge_2,
+    scavenging_efficiency,
+    rare_finder,
+    extra_find,
+    tool_mastery,
+    scavenging_experience,
+    scavenging_experience_2,
+    box_hunter,
+    box_fortune,
+    box_treasures,
+    box_recovery,
 };
 
 export function getSkill(key: string): Skill | undefined {

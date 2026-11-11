@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Item Details | Prestigious Ledger</title>
+    <link rel="stylesheet" href="/styles/main.css">
+  </head>
+  <body>
+    <div class="wrap companion-wrap">
+      <header id="siteHeader"></header>
+      <main>
+        <div class="hero">
+          <div><div class="eyebrow">Scavenging and crafting</div><h1>Item details</h1></div>
+          <a class="btn" href="/items">← Back to item catalog</a>
+        </div>
+        <div class="panel companion-wiki item-wiki">
+          <p id="itemStatus" class="status" role="status" aria-live="polite">Loading item…</p>
+          <article id="itemDetails" class="hidden">
+            <h2 id="itemName"></h2>
+            <p id="itemType"></p>
+            <p id="itemDescription"></p>
+            <dl class="companion-stats">
+              <div><dt>Price</dt><dd id="itemPrice"></dd></div>
+              <div><dt>Scavenging chance</dt><dd id="itemOdds"></dd></div>
+              <div><dt>In circulation</dt><dd id="itemCirculation"></dd></div>
+              <div><dt>Scavengable</dt><dd id="itemScavenge"></dd></div>
+            </dl>
+            <p class="status">Approximate odds per search, based on current circulation with no tools or bonuses. Your actual odds may differ.</p>
+            <section id="itemRecipeSection" class="hidden">
+              <h3>Crafting recipe</h3>
+              <ul id="itemRecipe"></ul>
+            </section>
+            <section id="itemToolBonusSection" class="hidden">
+              <h3 id="itemToolBonusHeading">Tool bonus</h3>
+              <p id="itemToolBonus"></p>
+            </section>
+            <section id="itemToolRulesSection" class="hidden">
+              <h3>Scavenging tool rules</h3>
+              <p id="itemToolRules"></p>
+            </section>
+          </article>
+          <button id="itemRetry" class="btn hidden" type="button">Retry</button>
+        </div>
+      </main>
+    </div>
+    <script src="/scripts/nav.js"></script>
+    <script src="/scripts/item.js"></script>
+  </body>
+</html>

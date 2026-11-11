@@ -12,6 +12,7 @@ export interface CompanionStats {
 export type CompanionBonus =
     | { readonly type: "experienceMultiplier"; readonly multiplier: number }
     | { readonly type: "balanceMultiplier"; readonly multiplier: number }
+    | { readonly type: "casinoPayoutMultiplier"; readonly multiplier: number }
     | { readonly type: "experienceFlat"; readonly amount: number }
     | { readonly type: "balanceFlat"; readonly amount: number }
     | { readonly type: "skillPointsFlat"; readonly amount: number }
@@ -176,7 +177,7 @@ export function getCompanion(key: string): Companion | undefined {
     return Object.hasOwn(companions, key) ? companions[key] : undefined;
 }
 
-export type CompanionReward = "experience" | "balance" | "skillPoints";
+export type CompanionReward = "experience" | "balance" | "casino" | "skillPoints";
 
 export function applyCompanionBonus(amount: number, reward: CompanionReward, active?: Companion): number {
     const bonus = active?.bonus;
@@ -186,6 +187,8 @@ export function applyCompanionBonus(amount: number, reward: CompanionReward, act
             return reward === "experience" ? amount * bonus.multiplier : amount;
         case "balanceMultiplier":
             return reward === "balance" ? amount * bonus.multiplier : amount;
+        case "casinoPayoutMultiplier":
+            return reward === "casino" ? amount * bonus.multiplier : amount;
         case "experienceFlat":
             return reward === "experience" ? amount + bonus.amount : amount;
         case "balanceFlat":

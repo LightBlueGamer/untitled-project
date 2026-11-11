@@ -59,6 +59,10 @@ describe("profile collections", () => {
                 { key: "mossprout", name: "Mossprout", rarity: "Common", quantity: 3, equipped: true },
                 { key: "<old>", name: null, rarity: null, quantity: 1, equipped: false },
             ] });
+            if (url === "/api/items/player/other") return response({
+                items: [{ key: "iron_ore", name: "Iron Ore", category: "Material", rarity: "Uncommon", quantity: 4 }],
+                equippedTools: [], bonuses: [], toolSlots: 1, backpack: { name: "Small Pouch", used: 4, capacity: 10 }, lootboxes: { boxes: 2, boosts: 1 },
+            });
             throw new Error(`Unexpected request: ${url}`);
         });
         const { context, getNode } = createPage(fetch, { id: "me" });
@@ -67,9 +71,14 @@ describe("profile collections", () => {
         expect(getNode("#openSkillTree").href).toBe("/skills?player=other");
         expect(getNode("#openSkillTree").textContent).toBe("View skill tree");
         expect(getNode("#profileCompanions").innerHTML).toContain('/companion?key=mossprout');
-        expect(getNode("#profileCompanions").innerHTML).toContain("Mossprout</a> · Common · 3 owned · Equipped");
+        expect(getNode("#profileCompanions").innerHTML).toContain("Mossprout</a>");
+        expect(getNode("#profileCompanions").innerHTML).toContain("3 owned · Equipped");
         expect(getNode("#profileCompanions").innerHTML).toContain("&lt;old&gt; (retired)");
         expect(getNode("#profileCompanions").innerHTML).not.toContain("<old>");
+        expect(getNode("#profileItems").innerHTML).toContain('/item?key=iron_ore');
+        expect(getNode("#profileItems").innerHTML).toContain("4 owned");
+        expect(getNode("#profileBackpack").textContent).toBe("Small Pouch: 4/10 slots used");
+        expect(getNode("#profileLootboxes").textContent).toBe("Lootboxes: 2 · Unused lootbox boosts: 1");
     });
 
     test("own profile links to editable tree and reports empty inventory or load failures", async () => {
@@ -79,6 +88,7 @@ describe("profile collections", () => {
             if (url === "/api/players/me") return response({ id: "me", name: "Me", balance: 0 });
             if (url === "/api/companions/player/me") return failed
                 ? response({}, false, 503) : response({ companions: [] });
+            if (url === "/api/items/player/me") return response({ items: [], equippedTools: [], bonuses: [], toolSlots: 1, backpack: { name: "Small Pouch", used: 0, capacity: 10 }, lootboxes: { boxes: 0, boosts: 0 } });
             throw new Error(`Unexpected request: ${url}`);
         });
         const { context, getNode } = createPage(fetch, { id: "me" });
@@ -100,6 +110,9 @@ describe("profile collections", () => {
             if (url === "/api/players/me") return response({ id: "me", name: "Me", balance: 0 });
             if (url === "/api/companions/player/other") return delayed;
             if (url === "/api/companions/player/me") return response({ companions: [] });
+            if (url === "/api/items/player/other" || url === "/api/items/player/me") return response({
+                items: [], equippedTools: [], bonuses: [], toolSlots: 1, backpack: { name: "Small Pouch", used: 0, capacity: 10 }, lootboxes: { boxes: 0, boosts: 0 },
+            });
             throw new Error(`Unexpected request: ${url}`);
         });
         const { context, getNode } = createPage(fetch, { id: "me" });

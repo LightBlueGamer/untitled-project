@@ -21,7 +21,8 @@
           <section>
             <h2>Getting started</h2>
             <p>Chat in a server where the bot is active to earn experience and money. Message rewards have a 30-second cooldown per player. Leveling up grants skill points, which you can spend in your skill tree.</p>
-            <p>Visit the <a href="/">leaderboard</a> to browse player records. Sign in with Discord to open your own profile and manage your progression.</p>
+            <p>Use “Add to your account” on the <a href="/">homepage</a> to install the app to your Discord account. Its public slash commands can then be used in servers, the bot's DM, and DMs or group DMs with friends. Only you can invoke your installed commands; other people can see public replies such as scavenging results. Chat rewards and companion encounters still require an active server.</p>
+            <p>Visit the <a href="/leaderboard">leaderboard</a> to browse player records. Sign in with Discord to open your own profile and manage your progression.</p>
           </section>
           <section>
             <h2>Skills and progression</h2>
@@ -35,8 +36,21 @@
             <p>Browse the <a href="/companions">companion circulation</a> to see species and rarity counts, or open a companion's entry for its stats and encounter odds.</p>
           </section>
           <section>
+            <h2>Items, scavenging, and crafting</h2>
+            <p>Use <code>/scavenge</code> to find an item and earn XP based on its rarity, price, and quantity. Searches have a five-minute base cooldown; Scavenging Efficiency reduces it. Seasoned Scavenger and your normal XP bonuses improve scavenging XP. The <a href="/items">item catalog</a> lists materials, components, consumables, treasures, and tools, including each item's rarity, price, description, and recipe when it can be crafted. Your profile shows your inventory and equipped tools.</p>
+            <p>Scavenging weights are relative selection weights, not percentages: an item with a larger weight is more likely to be selected than one with a smaller weight in the same pool. Rarity and tool modifiers affect those weights. Some items can be found without a tool, while an item's blacklist excludes it when a listed tool is used.</p>
+            <p>Items become less likely to appear as more players hold them. Use <code>/tool equip</code> to equip a tool; by default you can equip one at a time. Tool-slot skills can increase that limit. Use <code>/use</code> with a consumable to gain a temporary scavenging bonus. Tools can improve the chance of a specific category or of items at or above a rarity threshold. Open an item in the catalog to see its crafting ingredients and tool rules.</p>
+            <p>Catalog chances are approximate, per search, and use current circulation without tools or bonuses. The scavenging result shows your actual chance for that search, including equipped tools and active bonuses; an extra-find effect may award a second copy of the selected item.</p>
+            <p>Everyone starts with a Small Pouch holding 10 items. Each individual item, including equipped tools, takes one slot; the equipped backpack itself does not. Your profile shows used and total slots. Craft the Shoulder Bag, Travel Pack, Explorer's Backpack, and Adventurer's Rucksack in order to increase capacity to 20, 35, 55, and 80 slots. Each upgrade replaces the previous equipped backpack and consumes the other ingredients in its recipe.</p>
+            <p>A full backpack prevents scavenging without starting a cooldown, and extra finds are limited to the remaining space. Use <code>/sell</code> to sell any quantity of an item at its listed price, or use consumables to make room. Selling the last copy of an equipped tool unequips it. Existing inventories over capacity are preserved, but must be reduced below capacity before scavenging again. Backpack circulation includes equipped backpacks.</p>
+            <h2>Lootboxes</h2>
+            <p>Each message eligible for the 30-second message reward has a 1 in 500 base chance to award a lootbox; higher-rarity boxes are progressively rarer. Every completed prestige also awards a box. At prestige 1, Rare is the most likely prestige box, and later prestiges improve the chance of higher rarities.</p>
+            <p>Use <code>/lootbox list</code> to view your boxes and boosts, <code>/lootbox open</code> to open a box, and <code>/lootbox boost</code> to activate a boost. Each box gives one item (45%), companion (45%), or boost (10%). Its rarity multiplies the weight of matching-rarity item and companion rewards by 20; other rarities are still possible. Items include scavengable and crafted items, except backpacks, which must be upgraded in order.</p>
+            <p>Boxes and their boosts are stored separately and do not use backpack slots. If an item reward cannot fit, it is saved in that box until you free a slot; it cannot be rerolled. Boosts randomly improve box drop chance, box rarity, reward rarity, or item and companion reward odds for 15, 30, or 60 minutes. Activating a second boost of the same type multiplies its effect and extends its remaining duration. Box Hunter, Box Fortune, Box Treasures, Treasure Recovery, and lootbox prestige buffs improve those same chances. Higher-rarity modifiers scale relative rarity weights per tier, not guaranteed drops. Prestige uses your bonuses immediately before resetting skills.</p>
+          </section>
+          <section>
             <h2>Casino</h2>
-            <p>The <a href="/casino">casino</a> has Plinko, Blackjack, Pass the Bills, poker, multiplayer lobbies, and casino statistics. Wagers use your player balance; check each game's rules before placing a bet.</p>
+            <p>The <a href="/casino">casino</a> has Plinko, Blackjack, Pass the Bills, poker, multiplayer lobbies, and casino statistics. Wagers use your player balance; check each game's rules before placing a bet. Equipped casino companions, casino skills, and permanent prestige buffs increase winning payouts in Plinko, Blackjack, Pass the Bills, and solo poker against the house. The casino page shows your active boost and adjusted Plinko winning multipliers. These bonuses do not affect losses, ties, win odds, or games against other players.</p>
           </section>
           <section>
             <h2>Commands</h2>
@@ -44,6 +58,11 @@
               <li><code>/help</code> — show a quick guide and link to this page.</li>
               <li><code>/prestige</code> — prestige when you meet the level requirement.</li>
               <li><code>/companion list</code>, <code>/companion equip</code>, and <code>/companion unequip</code> — manage your companions.</li>
+              <li><code>/scavenge</code> — search for an item and earn XP (five-minute base cooldown).</li>
+              <li><code>/sell</code> — sell items for their listed price and free backpack space.</li>
+              <li><code>/lootbox list</code>, <code>/lootbox open</code>, and <code>/lootbox boost</code> — manage boxes and their boosts.</li>
+              <li><code>/tool equip</code>, <code>/tool unequip</code>, and <code>/tool list</code> — manage scavenging tools.</li>
+              <li><code>/use</code> — consume an item for a temporary bonus.</li>
             </ul>
           </section>
         </article>
