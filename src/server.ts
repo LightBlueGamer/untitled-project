@@ -2,7 +2,8 @@ import express from 'express'
 import apiRouter from './api/router.js'
 import casinoRouter from './api/casino.js'
 import { restoreLobbies } from './api/lobbies.js'
-import { authApiRouter, authRouter, discordOAuthCallback, requireLogin } from './auth.js'
+import { authApiRouter, authRouter, discordOAuthCallback, requireDeveloper, requireLogin } from './auth.js'
+import developerRouter from './api/developer.js'
 import { initDatabase, initRedis } from './database.js'
 
 import { fileURLToPath } from "node:url";
@@ -18,7 +19,12 @@ const port = Number(process.env.PORT) || 3000
 app.use('/api', apiRouter)
 app.use('/api/auth', authApiRouter)
 app.use('/api/casino', express.json(), casinoRouter)
+app.use('/api/developer', requireDeveloper, express.json(), developerRouter)
 app.use('/auth', authRouter)
+
+app.get(['/developer', '/developer.html'], requireDeveloper, (_request, response) => {
+    response.sendFile(join(projectRoot, 'private', 'developer.html'))
+})
 
 const configuredRedirectUri = process.env.DISCORD_REDIRECT_URI
 if (configuredRedirectUri) {

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Developer | Prestigious Ledger</title>
+    <script src="/scripts/theme.js"></script>
+    <link rel="stylesheet" href="/styles/main.css">
+  </head>
+  <body>
+    <div class="wrap">
+      <header id="siteHeader"></header>
+      <main class="developer-page">
+        <div class="hero">
+          <div>
+            <div class="eyebrow">Private diagnostics</div>
+            <h1>Developer dashboard</h1>
+            <p>Global debug settings and the latest 500 diagnostic events.</p>
+          </div>
+          <button id="refreshDebug" class="btn secondary-btn" type="button">Refresh</button>
+        </div>
+        <p id="debugStatus" class="status" role="status" aria-live="polite">Loading diagnostics…</p>
+        <section class="panel developer-settings" aria-label="Global debug settings">
+          <h2>Debug topics</h2>
+          <div id="debugSettings" class="developer-setting-list"></div>
+        </section>
+        <section class="panel developer-logs">
+          <div class="hero">
+            <div><h2>Recent logs</h2><p>Updates every 5 seconds while this page is open.</p></div>
+          </div>
+          <ol id="debugLogs" class="developer-log-list"></ol>
+          <p id="emptyDebugLogs" class="status hidden">No debug events yet. Enable a topic to start collecting logs.</p>
+        </section>
+      </main>
+    </div>
+    <script src="/scripts/nav.js"></script>
+    <script src="/scripts/developer.js"></script>
+  </body>
+</html>

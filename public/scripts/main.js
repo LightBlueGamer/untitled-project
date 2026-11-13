@@ -5,6 +5,25 @@ let currentPage = 1;
 let currentUser = null;
 let profileId = null;
 let salePending = false;
+let profileTab = 'overview';
+let skillFrameProfile = null;
+const profileTabs = ['overview', 'companions', 'items', 'boosts', 'skills', 'settings'];
+let boostRequest = 0;
+let boostExpiryTimer = null;
+
+window.addEventListener('message', event => {
+  const frame = $('#profileSkillFrame');
+  if (event.origin !== location.origin || event.source !== frame.contentWindow
+    || event.data?.type !== 'skill-tree-height'
+    || !Number.isFinite(event.data.height) || event.data.height <= 0) return;
+  frame.style.height = `${Math.ceil(event.data.height)}px`;
+});
+
+$('#profileSkillFrame').addEventListener('load', () => {
+  $('#profileSkillFrame').contentWindow?.postMessage(
+    { type: 'ledger-theme', theme: document.documentElement.dataset.theme }, location.origin
+  );
+});
 
 let PLAYERS_PER_PAGE = 10;
 
@@ -245,12 +264,50 @@ async function loadPlayers(fresh = false) {
   }
 }
 
-function stat(label, value, wide = false) {
-  return `<div class="stat ${wide ? 'wide' : ''}"><label>${label}</label><strong>${fmt(value)}</strong></div>`;
+function statGroup(title, icon, stats) {
+  return `<section class="overview-group">
+    <h4><span class="overview-icon" aria-hidden="true">${icon}</span>${title}</h4>
+    <dl>${stats.map(([label, value, symbol]) => `<div><dt><span class="overview-stat-icon" aria-hidden="true">${symbol}</span>${label}</dt><dd>${fmt(value)}</dd></div>`).join('')}</dl>
+  </section>`;
+}
+
+function selectProfileTab(tab, focus = false) {
+  if (!profileTabs.includes(tab) || (tab === 'settings' && currentUser?.id !== profileId)) return;
+  const previous = profileTab;
+  profileTab = tab;
+  for (const name of profileTabs) {
+    const active = name === tab;
+    const button = $(`#profileTab-${name}`);
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+    $(`#profilePanel-${name}`).classList.toggle('hidden', !active);
+  }
+  if (focus) $(`#profileTab-${tab}`).focus();
+  if (tab === 'boosts' && profileId) void loadProfileBoosts(profileId);
+  if (tab === 'skills' && skillFrameProfile !== profileId) {
+    const tree = currentUser?.id === profileId
+      ? '/skills?embed=1'
+      : `/skills?embed=1&player=${encodeURIComponent(profileId)}`;
+    $('#profileSkillFrame').src = tree;
+    skillFrameProfile = profileId;
+  }
+  if (previous === 'skills' && tab !== 'skills' && profileId) {
+    void loadProfile(profileId, true);
+  }
 }
 
 async function loadProfile(id, fresh = false) {
+  if (profileId !== id) {
+    boostRequest++;
+    window.clearTimeout(boostExpiryTimer);
+    $('#profileBoosts').textContent = 'Open this tab to load active boosts.';
+    skillFrameProfile = null;
+    $('#profileSkillFrame').src = 'about:blank';
+    profileTab = 'overview';
+    selectProfileTab('overview');
+  }
   profileId = id;
+  $('#profileTab-settings').classList.add('hidden');
   $('#openSkillTree').classList.add('hidden');
   $('#profileCompanions').textContent = 'Loading companions…';
   $('#profileItems').textContent = 'Loading inventory…';
@@ -259,6 +316,8 @@ async function loadProfile(id, fresh = false) {
   $('#profileEquippedTools').textContent = '';
   $('#profileItemBonuses').textContent = '';
   $('#profileSaleStatus').textContent = '';
+  $('#profileNameForm').classList.add('hidden');
+  $('#profileNameStatus').textContent = '';
   try {
     const url = `${API_BASE}/${encodeURIComponent(id)}`;
     const r = fresh ? await fetch(url, { cache: 'no-store' }) : await fetch(url);
@@ -267,6 +326,22 @@ async function loadProfile(id, fresh = false) {
     if (profileId !== id) return;
     $('#profileName').textContent = p.name || 'Unknown adventurer';
     $('#avatar').textContent = (p.name || '?').charAt(0).toUpperCase();
+    const avatar = $('#profileAvatar');
+    const hasAvatar = Boolean(p.discord?.avatarUrl);
+    avatar.classList.toggle('hidden', !hasAvatar);
+    $('#avatar').classList.toggle('hidden', hasAvatar);
+    if (hasAvatar) avatar.src = p.discord.avatarUrl;
+    const username = p.discord?.username || (currentUser?.id === p.id ? currentUser.username : null);
+    $('#profileUsername').textContent = username
+      ? `@${username}`
+      : 'Discord profile unavailable';
+    const requiredXP = Number(p.requiredXP) || 0;
+    const experience = Number(p.experience) || 0;
+    const progress = requiredXP > 0 ? Math.min(100, Math.max(0, experience / requiredXP * 100)) : 0;
+    $('#profileProgressLevel').textContent = `Prestige ${Number(p.prestige ?? 0).toLocaleString()} · Level ${Number(p.level ?? 1).toLocaleString()}`;
+    $('#profileProgressText').textContent = `${experience.toLocaleString()} / ${requiredXP.toLocaleString()} XP`;
+    $('#profileProgressFill').style.width = `${progress}%`;
+    $('#profileProgress').setAttribute('aria-valuenow', String(Math.round(progress)));
     const globalRank = [...allPlayers]
       .sort(compareGlobalRank)
       .findIndex(player => String(player.id) === String(p.id)) + 1;
@@ -275,8 +350,35 @@ async function loadProfile(id, fresh = false) {
       ? `Leaderboard rank #${globalRank}`
       : 'Unranked';
     if (profileId !== id) return;
-    $('#statGrid').innerHTML = stat('Prestige', p.prestige) + stat('Level', p.level) + stat('Experience', `${p.experience}`) + stat('Balance', `$${Number(p.balance ?? 0).toLocaleString()}`) + stat('Experience multiplier', `${p.experienceMultiplier ?? 1}×`) + stat('Balance multiplier', `${p.balanceMultiplier ?? 1}×`) + stat('Prestige bonus XP', `+${p.prestigeExperienceFlat ?? 0}`) + stat('Prestige bonus money', `+$${p.prestigeBalanceFlat ?? 0}`) + stat('Prestige appearance multiplier', `${Number(p.prestigeCompanionSpawnMultiplier ?? 1).toLocaleString()}×`) + stat('Prestige rarity multiplier', `${Number(p.prestigeCompanionRarityMultiplier ?? 1).toLocaleString()}×`) + stat('Companion slots', p.companionSlots ?? 1) + stat('Tool slots', p.toolSlots ?? 1) + stat('Scavenge item bonus', `${Number(p.scavengeWeightMultiplier ?? 1).toLocaleString()}×`) + stat('Rare-find bonus', `${Number(p.scavengeRarityMultiplier ?? 1).toLocaleString()}×`) + stat('Extra item chance', `${Math.round(Number(p.scavengeExtraFindChance ?? 0) * 100)}%`) + stat('Skill points', p.skillPoints ?? 0);
+    $('#statGrid').innerHTML = [
+      statGroup('Resources', '◆', [
+        ['Balance', `$${Number(p.balance ?? 0).toLocaleString()}`, '◈'],
+        ['Skill points', p.skillPoints ?? 0, '✦'],
+        ['Companion slots', p.companionSlots ?? 1, '♧'],
+        ['Tool slots', p.toolSlots ?? 1, '⚒']
+      ]),
+      statGroup('Rewards', '✦', [
+        ['Experience multiplier', `${p.experienceMultiplier ?? 1}×`, '✦'],
+        ['Balance multiplier', `${p.balanceMultiplier ?? 1}×`, '◈'],
+        ['Prestige bonus XP', `+${p.prestigeExperienceFlat ?? 0}`, '✧'],
+        ['Prestige bonus money', `+$${p.prestigeBalanceFlat ?? 0}`, '♛']
+      ]),
+      statGroup('Companion bonuses', '✧', [
+        ['Prestige appearance multiplier', `${Number(p.prestigeCompanionSpawnMultiplier ?? 1).toLocaleString()}×`, '♧'],
+        ['Prestige rarity multiplier', `${Number(p.prestigeCompanionRarityMultiplier ?? 1).toLocaleString()}×`, '◇']
+      ]),
+      statGroup('Scavenging bonuses', '⌕', [
+        ['Scavenge item bonus', `${Number(p.scavengeWeightMultiplier ?? 1).toLocaleString()}×`, '⌕'],
+        ['Rare-find bonus', `${Number(p.scavengeRarityMultiplier ?? 1).toLocaleString()}×`, '◇'],
+        ['Extra item chance', `${Math.round(Number(p.scavengeExtraFindChance ?? 0) * 100)}%`, '✚']
+      ])
+    ].join('');
     const ownProfile = currentUser?.id === p.id;
+    if (ownProfile) {
+      $('#profileTab-settings').classList.remove('hidden');
+      $('#profileNameInput').value = p.name || '';
+      $('#profileNameForm').classList.remove('hidden');
+    }
     $('#openSkillTree').href = ownProfile ? '/skills' : `/skills?player=${encodeURIComponent(p.id)}`;
     $('#openSkillTree').textContent = ownProfile ? 'Open skill tree' : 'View skill tree';
     $('#openSkillTree').classList.remove('hidden');
@@ -287,7 +389,38 @@ async function loadProfile(id, fresh = false) {
       $('#statGrid').innerHTML = `<div class="error wide">${esc(e.message)}</div>`;
       $('#profileCompanions').textContent = 'Could not load companions because the profile could not be loaded.';
       $('#profileItems').textContent = 'Could not load inventory because the profile could not be loaded.';
+      $('#profileBoosts').textContent = 'Could not load boosts because the profile could not be loaded.';
     }
+  }
+}
+
+async function saveProfileName(event) {
+  event.preventDefault();
+  if (!currentUser || profileId !== currentUser.id) return;
+  const id = profileId;
+  const button = $('#saveProfileName');
+  button.disabled = true;
+  $('#profileNameStatus').textContent = 'Saving…';
+  try {
+    const response = await fetch(`${API_BASE}/me/name`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ name: $('#profileNameInput').value }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+    const player = allPlayers.find(item => String(item.id) === String(id));
+    if (player) player.name = data.name;
+    if (profileId === id) {
+      $('#profileName').textContent = data.name;
+      $('#avatar').textContent = data.name.charAt(0).toUpperCase();
+      $('#profileNameInput').value = data.name;
+      $('#profileNameStatus').textContent = 'Name saved.';
+    }
+  } catch (error) {
+    if (profileId === id) $('#profileNameStatus').textContent = error.message;
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -300,9 +433,7 @@ async function loadProfileItems(id) {
     $('#profileBackpack').textContent = `${data.backpack.name}: ${data.backpack.used}/${data.backpack.capacity} slots used`;
     $('#profileLootboxes').textContent = `Lootboxes: ${data.lootboxes.boxes} · Unused lootbox boosts: ${data.lootboxes.boosts}`;
     $('#profileEquippedTools').textContent = `Equipped tools (${data.equippedTools.length}/${data.toolSlots}): ${data.equippedTools.map(tool => tool.name).join(', ') || 'None'}`;
-    $('#profileItemBonuses').textContent = data.bonuses.length
-      ? `Active consumable effects: ${data.bonuses.map(bonus => `${bonus.type} (${Number(bonus.multiplier).toLocaleString()}×) until ${new Date(bonus.expiresAt).toLocaleString()}`).join('; ')}`
-      : 'No active consumable effects.';
+    $('#profileItemBonuses').textContent = 'See the Boosts tab for active temporary effects.';
     $('#profileItems').innerHTML = data.items.length
       ? `<ul class="profile-collection-list">${data.items.map(item => {
         const name = esc(item.name);
@@ -323,6 +454,57 @@ async function loadProfileItems(id) {
       : '<p>No items yet. Use <code>/scavenge</code> to find some.</p>';
   } catch (error) {
     if (profileId === id) $('#profileItems').textContent = `Could not load item inventory. ${error.message}`;
+  }
+}
+
+function describeProfileBoost(bonus) {
+  const amount = Number(bonus.multiplier).toLocaleString(undefined, { maximumFractionDigits: 4 });
+  switch (bonus.type) {
+    case 'scavengeRarity': return ['Rare finds', '◇', `${amount}× weight for Rare-or-better scavenged items.`];
+    case 'extraFindChance': return ['Extra find', '✚', `Adds ${Number(bonus.multiplier * 100).toLocaleString(undefined, { maximumFractionDigits: 2 })} percentage points to the extra-item chance (total capped at 75%).`];
+    case 'lootboxDrop': return ['Lootbox hunter', '▣', `${amount}× message lootbox drop chance, capped at 100%.`];
+    case 'lootboxRarity': return ['Lootbox fortune', '◇', `${amount}× higher-rarity weighting per tier for lootboxes, not a guaranteed rarity.`];
+    case 'lootboxReward': return ['Reward rarity', '✦', `${amount}× higher-rarity weighting per tier for lootbox items and companions, not a guaranteed rarity.`];
+    case 'lootboxFind': return ['Treasure recovery', '◆', `${amount}× item and companion reward weights relative to boosts when opening lootboxes.`];
+    default: return ['Unknown boost', '?', `Effect details unavailable for ${bonus.type}; stored value ${amount}.`];
+  }
+}
+
+function renderProfileBoosts(bonuses) {
+  const now = Date.now();
+  const active = bonuses.filter(bonus => {
+    const expires = Date.parse(bonus.expiresAt);
+    return !Number.isFinite(expires) || expires > now;
+  });
+  $('#profileBoosts').innerHTML = active.length
+    ? `<ul class="boost-list">${active.map(bonus => {
+      const [name, icon, description] = describeProfileBoost(bonus);
+      const expiry = new Date(bonus.expiresAt);
+      const expiresAt = Number.isFinite(expiry.getTime()) ? expiry.toLocaleString() : 'Expiry unavailable';
+      return `<li class="boost-card"><span class="boost-icon" aria-hidden="true">${icon}</span>
+        <div><h4>${esc(name)}</h4><p>${esc(description)}</p><span class="boost-expiry">${esc(expiresAt === 'Expiry unavailable' ? expiresAt : `Expires ${expiresAt}`)}</span></div></li>`;
+    }).join('')}</ul>`
+    : '<p class="boost-empty">No temporary boosts are active. Use a consumable or activate a lootbox boost to get started.</p>';
+  window.clearTimeout(boostExpiryTimer);
+  const expiries = active.map(bonus => Date.parse(bonus.expiresAt)).filter(Number.isFinite);
+  if (expiries.length) {
+    const delay = Math.min(2147483647, Math.max(1, Math.min(...expiries) - now + 1));
+    boostExpiryTimer = window.setTimeout(() => renderProfileBoosts(bonuses), delay);
+  }
+}
+
+async function loadProfileBoosts(id) {
+  const request = ++boostRequest;
+  window.clearTimeout(boostExpiryTimer);
+  $('#profileBoosts').textContent = 'Loading active boosts…';
+  try {
+    const response = await fetch(`/api/items/player/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    const data = await response.json();
+    if (!Array.isArray(data.bonuses)) throw new Error('Boost data is unavailable.');
+    if (profileId === id && request === boostRequest) renderProfileBoosts(data.bonuses);
+  } catch (error) {
+    if (profileId === id && request === boostRequest) $('#profileBoosts').textContent = `Could not load active boosts. ${error.message}`;
   }
 }
 
@@ -487,6 +669,26 @@ $('#search').addEventListener('input', () => {
 $('#returnToLedger').addEventListener('click', showLeaderboard);
 $('#jumpToPlayer').addEventListener('click', jumpToCurrentPlayer);
 $('#profileItems').addEventListener('submit', sellProfileItem);
+$('#refreshProfileBoosts').addEventListener('click', () => {
+  if (profileId) void loadProfileBoosts(profileId);
+});
+$('#profileNameForm').addEventListener('submit', saveProfileName);
+for (const [index, tab] of profileTabs.entries()) {
+  $(`#profileTab-${tab}`).addEventListener('click', () => selectProfileTab(tab));
+  $(`#profileTab-${tab}`).addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const available = profileTabs.filter(name => name !== 'settings' || currentUser?.id === profileId);
+    const currentIndex = available.indexOf(profileTabs[index]);
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? available.length - 1
+      : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + available.length) % available.length;
+    selectProfileTab(available[nextIndex], true);
+  });
+}
+$('#profileAvatar').addEventListener('error', () => {
+  $('#profileAvatar').classList.add('hidden');
+  $('#avatar').classList.remove('hidden');
+});
 
 document
   .querySelectorAll('.sort-button')

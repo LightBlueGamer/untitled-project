@@ -4,6 +4,7 @@ import { scavengeForPlayer, type ScavengeResult } from "../../itemStorage.js";
 import { tools } from "../../resources/items.js";
 import { expireLevelUpMessage, levelUpMessage } from "../levelUp.js";
 import { websiteUrl } from "../website.js";
+import { playerMention } from "../playerName.js";
 
 export function formatRemaining(milliseconds: number): string {
     const seconds = Math.ceil(milliseconds / 1000);
@@ -43,7 +44,7 @@ export default {
             const itemUrl = websiteUrl(`/item?key=${encodeURIComponent(result.key)}`);
             const embed = new EmbedBuilder()
                 .setTitle("Scavenging results")
-                .setDescription(`${interaction.user} found [${result.item.name}](${itemUrl}) ×${result.quantity}!`)
+                .setDescription(`${playerMention(result.progression.player.name, String(interaction.user))} found [${result.item.name}](${itemUrl}) ×${result.quantity}!`)
                 .addFields(
                     { name: "Item", value: `${result.item.rarity} ${result.item.category}`, inline: true },
                     { name: "Value", value: `$${result.item.price.toLocaleString()} each`, inline: true },

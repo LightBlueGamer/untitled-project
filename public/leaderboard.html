@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Leaderboard | Prestigious Ledger</title>
+    <script src="/scripts/theme.js"></script>
     <link rel="stylesheet" href="/styles/main.css">
   </head>
   <body>
@@ -14,6 +15,7 @@
           <div>
             <div class="eyebrow">Chronicles of Prestige</div>
             <h1>Players’ Ledger</h1>
+            <p>Follow the adventurers making their mark on the realm.</p>
           </div>
           <div class="crest">✦</div>
         </div>
@@ -81,31 +83,77 @@
           <button id="returnToLedger" class="btn" type="button">← Return to ledger</button>
           <button id="jumpToPlayer" class="btn hidden" type="button">Find me on the leaderboard</button>
         </div>
-        <div class="panel profile">
-          <div class="identity">
-            <div id="avatar" class="avatar">✦</div>
-            <h2 id="profileName">Adventurer</h2>
-            <div id="profileRank" class="profile-rank"></div>
+        <div class="panel profile-hero">
+          <div class="profile-identity">
+            <div class="avatar-frame">
+              <div id="avatar" class="avatar" aria-hidden="true">✦</div>
+              <img id="profileAvatar" class="profile-avatar hidden" alt="Discord avatar">
+            </div>
+            <div class="profile-identity-text">
+              <div class="eyebrow">Adventurer's record</div>
+              <h2 id="profileName">Adventurer</h2>
+              <p id="profileUsername" class="profile-username"></p>
+              <div id="profileRank" class="profile-rank"></div>
+            </div>
           </div>
-          <div class="stats">
-            <div class="eyebrow">Character record</div>
-            <h3>Statistics</h3>
-            <div id="statGrid" class="stat-grid"></div>
-            <a id="openSkillTree" class="btn hidden" href="/skills">Open skill tree</a>
+          <div class="profile-progress">
+            <div class="profile-progress-heading">
+              <div><span class="profile-progress-label">Your journey</span><strong id="profileProgressLevel"></strong></div>
+              <div class="profile-progress-numbers"><span>Progress to next level</span><strong id="profileProgressText"></strong></div>
+            </div>
+            <div id="profileProgress" class="profile-progress-track" role="progressbar" aria-label="Experience progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="profileProgressFill"></span></div>
           </div>
         </div>
-        <section class="panel profile-companions" aria-labelledby="profileCompanionsHeading">
-          <h3 id="profileCompanionsHeading">Companions</h3>
+        <div class="profile-tabs" role="tablist" aria-label="Profile sections">
+          <button id="profileTab-overview" type="button" role="tab" aria-controls="profilePanel-overview" aria-selected="true">Overview</button>
+          <button id="profileTab-companions" type="button" role="tab" aria-controls="profilePanel-companions" aria-selected="false" tabindex="-1">Companions</button>
+          <button id="profileTab-items" type="button" role="tab" aria-controls="profilePanel-items" aria-selected="false" tabindex="-1">Items</button>
+          <button id="profileTab-boosts" type="button" role="tab" aria-controls="profilePanel-boosts" aria-selected="false" tabindex="-1">Boosts</button>
+          <button id="profileTab-skills" type="button" role="tab" aria-controls="profilePanel-skills" aria-selected="false" tabindex="-1">Skill tree</button>
+          <button id="profileTab-settings" class="hidden" type="button" role="tab" aria-controls="profilePanel-settings" aria-selected="false" tabindex="-1">Settings</button>
+        </div>
+        <section id="profilePanel-overview" class="profile-panel panel" role="tabpanel" aria-labelledby="profileTab-overview">
+            <div class="profile-section-heading">
+              <div><div class="eyebrow">At a glance</div><h3>Character overview</h3></div>
+              <span class="profile-section-mark" aria-hidden="true">✦</span>
+            </div>
+            <div id="statGrid" class="overview-grid"></div>
+        </section>
+        <section id="profilePanel-companions" class="profile-panel panel hidden" role="tabpanel" aria-labelledby="profileTab-companions" tabindex="0">
+          <div class="profile-section-heading"><div><div class="eyebrow">Your collection</div><h3 id="profileCompanionsHeading">Companions</h3><p>Meet the companions you've gathered on your journey.</p></div></div>
           <div id="profileCompanions" aria-live="polite"></div>
         </section>
-        <section class="panel profile-companions" aria-labelledby="profileItemsHeading">
-          <h3 id="profileItemsHeading">Item inventory</h3>
-          <p id="profileBackpack"></p>
-          <p id="profileLootboxes"></p>
-          <p id="profileEquippedTools"></p>
-          <p id="profileItemBonuses"></p>
+        <section id="profilePanel-items" class="profile-panel panel hidden" role="tabpanel" aria-labelledby="profileTab-items" tabindex="0">
+          <div class="profile-section-heading"><div><div class="eyebrow">Your belongings</div><h3 id="profileItemsHeading">Item inventory</h3><p>Your backpack, equipment, and treasures.</p></div></div>
+          <div class="profile-inventory-summary">
+            <p id="profileBackpack"></p><p id="profileLootboxes"></p>
+            <p id="profileEquippedTools"></p><p id="profileItemBonuses"></p>
+          </div>
           <p id="profileSaleStatus" role="status" aria-live="polite"></p>
           <div id="profileItems" aria-live="polite"></div>
+        </section>
+        <section id="profilePanel-boosts" class="profile-panel panel hidden" role="tabpanel" aria-labelledby="profileTab-boosts" tabindex="0">
+          <div class="profile-section-heading">
+            <div><div class="eyebrow">Active effects</div><h3>Temporary boosts</h3><p>Consumable and lootbox effects currently in use. Permanent and equipment bonuses are separate from these timed boosts.</p></div>
+            <button id="refreshProfileBoosts" class="btn secondary-btn" type="button">Refresh</button>
+          </div>
+          <div id="profileBoosts" role="status" aria-live="polite">Open this tab to load active boosts.</div>
+        </section>
+        <section id="profilePanel-skills" class="profile-panel profile-skills-panel panel hidden" role="tabpanel" aria-labelledby="profileTab-skills" tabindex="0">
+          <div class="profile-section-heading"><div><div class="eyebrow">Choose your path</div><h3>Skill tree</h3><p>Explore your skills and progression.</p></div>
+            <a id="openSkillTree" class="btn secondary-btn hidden" href="/skills">Open skill tree</a>
+          </div>
+          <iframe id="profileSkillFrame" title="Skill tree" class="profile-skill-frame"></iframe>
+        </section>
+        <section id="profilePanel-settings" class="profile-panel panel hidden" role="tabpanel" aria-labelledby="profileTab-settings" tabindex="0">
+          <div class="profile-section-heading"><div><div class="eyebrow">Make it yours</div><h3>Profile settings</h3><p>Choose the name shown on your profile and throughout the game.</p></div></div>
+          <form id="profileNameForm" class="profile-name-form hidden">
+            <label for="profileNameInput">Display name</label>
+            <input id="profileNameInput" type="text" maxlength="64" autocomplete="off" required>
+            <span class="profile-settings-hint">1–32 characters. Your Discord username stays visible on your profile.</span>
+            <button id="saveProfileName" class="btn" type="submit">Save name</button>
+            <p id="profileNameStatus" role="status" aria-live="polite"></p>
+          </form>
         </section>
       </section>
     </div>

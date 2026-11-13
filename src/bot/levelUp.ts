@@ -1,6 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import type { ExperienceResult } from "../classes/Player.js";
 import { websiteUrl } from "./website.js";
+import { playerMention } from "./playerName.js";
 
 export function levelUpMessage(mention: string, result: ExperienceResult) {
     const { player, previousLevel, currentLevel, skillPointsGained } = result;
@@ -13,7 +14,7 @@ export function levelUpMessage(mention: string, result: ExperienceResult) {
         )]
         : [];
     return {
-        content: `${mention}, congratulations! You've leveled up to level ${currentLevel} and earned ${skillPointsGained} skill point${skillPointsGained === 1 ? "" : "s"}! 🎉${prestigeNotice}`,
+        content: `${playerMention(player.name, mention)}, congratulations! You've leveled up to level ${currentLevel} and earned ${skillPointsGained} skill point${skillPointsGained === 1 ? "" : "s"}! 🎉${prestigeNotice}`,
         components,
     };
 }

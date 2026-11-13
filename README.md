@@ -3,6 +3,51 @@
 Updates are listed newest first. Each entry summarizes the features and changes
 introduced in that release.
 
+## 2026-11-13 — Developer diagnostics
+
+- Restored the purple-and-gold theme and added a persistent light/dark switch.
+  The character overview groups stats into compact, illustrated sections. A
+  profile Boosts tab shows active temporary consumable and lootbox effects,
+  their descriptions and expiration times; refresh it to see newly activated
+  effects. Permanent and equipment bonuses are separate. Skill-tree
+  instructions appear below the tree, with a balance chart showing the
+  share of unlocked skills per category; drag, zoom, and keyboard navigation
+  remain available without visible tree scrollbars.
+- Refreshed the website's RPG-inspired visual design across the homepage,
+  navigation, profiles, catalogs, guide, skill tree, casino, and developer page.
+- Redesigned profiles with a single prestige, level, and XP progress display,
+  plus tabs for overview, companions, items, skill tree, and personal settings.
+  The skill tree remains editable on your own profile and read-only for others.
+- Profiles now show Discord avatars and usernames, level progress, and a
+  player-chosen display name. Signed-in players can change their own name
+  (1–32 characters); the name appears on the leaderboard, in game displays,
+  and alongside Discord mentions in bot announcements. The website service
+  needs `DISCORD_TOKEN` to look up Discord profiles; lookups are cached for
+  one hour and profiles show a fallback if Discord is unavailable.
+- Added a global lootbox debug topic for eligible message drop chances and
+  outcomes, prestige awards, and opened or saved item, companion, and boost
+  rewards. Message drop rolls only happen on cooldown-eligible messages.
+- Added a private `/developer` dashboard for the Discord account configured by
+  `DEVELOPER_ID`. Set this environment variable on the website service and log
+  in with Discord; access is denied if it is missing. Docker Compose passes it
+  from `.env`. The bot application owner can still use `/debug` in Discord.
+- Debug topics are now global across all servers and channels. Enabled legacy
+  channel settings become global at startup. The dashboard shares the latest
+  500 enabled events through Redis and displays usernames and server/channel
+  names for message events without recording message contents. Redis
+  persistence determines whether the feed survives a Redis restart.
+- Companion chance diagnostics also report when a message is skipped because
+  the same person sent the previous eligible message, showing the unchanged
+  base chance rather than implying a roll occurred.
+- Rebuild and restart both bot and API services, and run
+  `npm run deploy:commands` to update the Discord command descriptions.
+
+## 2026-11-12 — Level progression
+
+- Increased XP requirements by a multiplier based on the current level: 1× at
+  levels 1–10, 2× at 11–20, 3× at 21–30, and so on. Existing levels, XP,
+  and historical lifetime-XP estimates are preserved.
+
 ## 2026-11-10 — Homepage, skill tree, companions, and game guide
 
 - Added item sales on the signed-in player's profile, using the same prices,

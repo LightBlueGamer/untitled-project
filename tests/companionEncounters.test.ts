@@ -79,6 +79,7 @@ describe("companion encounters", () => {
         expect(mocks.findById).toHaveBeenCalledTimes(3);
         expect(mocks.debugLog.mock.calls.map(call => call[2])).toEqual([
             "Channel channel-skill-ownership: 1.5/1000",
+            "Channel channel-skill-ownership: no roll (same sender as previous eligible message); base chance 7/1000",
             "Channel channel-skill-ownership: 7/1000",
             "Channel channel-skill-ownership: 19.5/1000",
         ]);
@@ -252,6 +253,8 @@ describe("companion encounters", () => {
         await handleEncounterMessage(message);
         expect(mocks.debugLog.mock.calls.map(call => call[2])).toEqual([
             "Channel channel-chance: 1/1000",
+            "Channel channel-chance: no roll (same sender as previous eligible message); base chance 2/1000",
+            "Channel channel-chance: no roll (same sender as previous eligible message); base chance 2/1000",
             "Channel channel-chance: 2/1000",
             "Channel channel-chance: 12/1000",
         ]);
@@ -262,7 +265,8 @@ describe("companion encounters", () => {
         mocks.channelStates.set("channel-restored", { chance: 37, lastUserId: "previous-sender" });
         vi.spyOn(Math, "random").mockReturnValue(0.5);
         const message = {
-            guild: {}, channelId: "channel-restored", author: { id: "next-sender", bot: false },
+            guild: { name: "A guild" }, channel: { name: "general" },
+            channelId: "channel-restored", author: { id: "next-sender", username: "Alice", bot: false },
         } as unknown as Message;
 
         await handleEncounterMessage(message);
@@ -271,11 +275,33 @@ describe("companion encounters", () => {
             "chance",
             "channel-restored",
             "Channel channel-restored: 37/1000",
+            { userId: "next-sender", username: "Alice", guild: "A guild", channel: "general" },
         );
         expect(mocks.channelStates.get("channel-restored")).toEqual({
             chance: 43,
             lastUserId: "next-sender",
         });
+    });
+
+    test("logs the unchanged base chance when the previous sender sends again", async () => {
+        mocks.channelStates.set("channel-repeat", { chance: 37, lastUserId: "same-sender" });
+        const random = vi.spyOn(Math, "random");
+        const message = {
+            guild: { name: "A guild" }, channel: { name: "general" }, channelId: "channel-repeat",
+            author: { id: "same-sender", username: "Alice", bot: false },
+        } as unknown as Message;
+
+        await handleEncounterMessage(message);
+
+        expect(mocks.debugLog).toHaveBeenCalledWith(
+            "chance", "channel-repeat",
+            "Channel channel-repeat: no roll (same sender as previous eligible message); base chance 37/1000",
+            { userId: "same-sender", username: "Alice", guild: "A guild", channel: "general" },
+        );
+        expect(mocks.channelStates.get("channel-repeat")).toEqual({ chance: 37, lastUserId: "same-sender" });
+        expect(mocks.saveChannelState).not.toHaveBeenCalled();
+        expect(mocks.findById).not.toHaveBeenCalled();
+        expect(random).not.toHaveBeenCalled();
     });
 
     test("chance survives prolonged inactivity and still requires another user", async () => {
@@ -342,12 +368,13 @@ describe("companion encounters", () => {
         expect(payload.content).toContain("within 30 seconds");
         expect(payload.components[0].components[0].data.custom_id).toMatch(/^companion_catch:/);
         await handleEncounterMessage(message);
-        expect(mocks.debugLog).toHaveBeenCalledTimes(2);
+        expect(mocks.debugLog).toHaveBeenCalledTimes(3);
         Object.assign(message, { author: { id: "owner", bot: false } });
         await handleEncounterMessage(message);
         expect(mocks.debugLog.mock.calls.map(call => call[2])).toEqual([
             "Channel channel-spawn: 1/1000",
             "Channel channel-spawn: 11/1000",
+            "Channel channel-spawn: no roll (same sender as previous eligible message); base chance 1/1000",
             "Channel channel-spawn: 1/1000",
         ]);
     });
@@ -356,6 +383,7 @@ describe("companion encounters", () => {
         let acknowledge!: () => void;
         const delayed = new Promise<void>(resolve => { acknowledge = resolve; });
         mocks.catch.mockReset().mockResolvedValueOnce("mossprout").mockResolvedValueOnce(null);
+        mocks.findById.mockResolvedValueOnce({ name: "Custom name" });
         const editMessage = vi.fn();
         const firstReply = vi.fn();
         const secondReply = vi.fn();
@@ -370,6 +398,7 @@ describe("companion encounters", () => {
         await Promise.all(requests);
         expect(mocks.catch.mock.calls.map(call => call[3])).toEqual(["first", "second"]);
         expect(firstReply).toHaveBeenCalledWith("You caught Mossprout!");
+        expect(editMessage).toHaveBeenCalledWith(expect.objectContaining({ content: "**Custom name** (<@first>) caught **Mossprout**!" }));
         expect(secondReply).toHaveBeenCalledWith(expect.stringContaining("already been caught"));
     });
 

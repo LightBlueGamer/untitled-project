@@ -9,6 +9,7 @@ import { expireLevelUpMessage, levelUpMessage } from "../levelUp.js";
 import { getLootboxBonuses, savePlayerWithLootbox } from "../../lootboxStorage.js";
 import { lootboxDropChance, rollLootboxRarity } from "../../resources/lootboxes.js";
 import { type Rarity } from "../../resources/rarities.js";
+import { playerMention } from "../playerName.js";
 
 const cd = new Set();
 
@@ -28,6 +29,7 @@ export default {
             cd.add(member.id);
             let result: MessageRewardResult;
             let lootbox: Rarity | null = null;
+            let dropChance = 0;
             const rolls = new Map<string, number>();
             const random = (key: string) => {
                 if (!rolls.has(key)) rolls.set(key, Math.random());
@@ -38,7 +40,8 @@ export default {
                     const player = await Player.get(member.id, message.client);
                     result = player.assignRandomExperienceAndBalance(random);
                     const bonuses = await getLootboxBonuses(player.id);
-                    lootbox = random("lootbox-drop") < lootboxDropChance(player.lootboxDropMultiplier * bonuses.lootboxDrop)
+                    dropChance = lootboxDropChance(player.lootboxDropMultiplier * bonuses.lootboxDrop);
+                    lootbox = random("lootbox-drop") < dropChance
                         ? rollLootboxRarity("message", player.prestigeLevel, player.lootboxRarityMultiplier * bonuses.lootboxRarity,
                             () => random("lootbox-rarity"))
                         : null;
@@ -62,12 +65,18 @@ export default {
                 didLevelUp,
             } = result;
             debugLog("rewards", message.channelId,
-                `Channel ${message.channelId}, player ${member.id}: ${result.experienceAwarded} XP, ${result.balanceAwarded} money, ${result.skillPointsGained + result.bonusSkillPoints} skill points`);
+                `Channel ${message.channelId}, player ${member.id}: ${result.experienceAwarded} XP, ${result.balanceAwarded} money, ${result.skillPointsGained + result.bonusSkillPoints} skill points`,
+                { userId: member.id, username: member.user.username, guild: message.guild?.name,
+                    channel: message.channel && "name" in message.channel ? message.channel.name ?? undefined : undefined });
+            debugLog("lootboxes", message.channelId,
+                `Message lootbox chance: ${Number((dropChance * 100).toPrecision(6))}% (1 in ${Number((1 / dropChance).toPrecision(6))}); ${lootbox ? `awarded ${lootbox} lootbox` : "no lootbox"}`,
+                { userId: member.id, username: member.user.username, guild: message.guild?.name,
+                    channel: message.channel && "name" in message.channel ? message.channel.name ?? undefined : undefined });
 
             if (lootbox) {
                 try {
                     await (message.channel as GuildTextBasedChannel).send({
-                        content: `${member} found a **${lootbox} lootbox**! Use \`/lootbox list\` to view it and \`/lootbox open\` to open it.`,
+                        content: `${playerMention(result.player.name, String(member))} found a **${lootbox} lootbox**! Use \`/lootbox list\` to view it and \`/lootbox open\` to open it.`,
                     });
                 } catch (error) {
                     console.error("Failed to announce saved lootbox:", error);
@@ -80,7 +89,7 @@ export default {
                     reward.skillPoints ? `${reward.skillPoints.toLocaleString()} skill point${reward.skillPoints === 1 ? "" : "s"}` : null,
                 ].filter((item): item is string => item !== null);
                 await (message.channel as GuildTextBasedChannel).send({
-                    content: `${member}, ${reward.name}! You found ${rewards.join(" and ")}!`,
+                    content: `${playerMention(result.player.name, String(member))}, ${reward.name}! You found ${rewards.join(" and ")}!`,
                 });
             }
 

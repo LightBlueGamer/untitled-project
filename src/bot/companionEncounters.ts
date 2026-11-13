@@ -13,6 +13,7 @@ import {
 import { companionSelectionWeights, getCompanion, type Companion } from "../resources/companions.js";
 import { debugLog } from "../debugSettings.js";
 import { companionSkillMultiplier, SkillEffect } from "../resources/skills.js";
+import { playerMention } from "./playerName.js";
 
 const denominator = 1_000;
 const catchQueues = new Map<string, Promise<void>>();
@@ -105,7 +106,16 @@ export async function handleEncounterMessage(message: Message): Promise<boolean>
     const previous = encounterQueues.get(message.channelId) ?? Promise.resolve();
     const operation = previous.then(async () => {
         const storedState = await getCompanionChannelState(message.channelId);
-        if (storedState?.lastUserId === message.author.id) return;
+        const debugContext = {
+            userId: message.author.id, username: message.author.username, guild: message.guild?.name,
+            channel: message.channel && "name" in message.channel ? message.channel.name ?? undefined : undefined,
+        };
+        if (storedState?.lastUserId === message.author.id) {
+            debugLog("chance", message.channelId,
+                `Channel ${message.channelId}: no roll (same sender as previous eligible message); base chance ${storedState.chance}/${denominator}`,
+                debugContext);
+            return;
+        }
 
         const channelState: CompanionChannelState = storedState
             ? { ...storedState, lastUserId: message.author.id }
@@ -118,7 +128,7 @@ export async function handleEncounterMessage(message: Message): Promise<boolean>
         const multiplier = companionSkillMultiplier(player?.skills ?? [], SkillEffect.CompanionSpawn)
             * (player?.prestigeCompanionSpawnMultiplier ?? 1);
         const chance = Math.min(denominator, channelState.chance * multiplier);
-        debugLog("chance", message.channelId, `Channel ${message.channelId}: ${chance}/${denominator}`);
+        debugLog("chance", message.channelId, `Channel ${message.channelId}: ${chance}/${denominator}`, debugContext);
         if (Math.random() * denominator < chance) {
             channelState.chance = 1;
             await saveCompanionChannelState(message.channelId, channelState);
@@ -155,8 +165,14 @@ export async function handleCatchButton(interaction: ButtonInteraction): Promise
             return;
         }
         const name = getCompanion(key)?.name ?? key;
+        let playerName = interaction.user.username;
         try {
-            await interaction.message.edit({ content: `<@${interaction.user.id}> caught **${name}**!`, components: [] });
+            playerName = (await Player.findById(interaction.user.id))?.name ?? playerName;
+        } catch (error) {
+            console.error("Failed to load catcher name:", error);
+        }
+        try {
+            await interaction.message.edit({ content: `${playerMention(playerName, `<@${interaction.user.id}>`)} caught **${name}**!`, components: [] });
         } catch (error) {
             console.error("Failed to update caught companion message:", error);
         }

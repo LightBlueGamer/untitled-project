@@ -8,6 +8,7 @@ import { getCompanion } from "../../resources/companions.js";
 import { getLootboxBonuses, savePlayerWithLootbox } from "../../lootboxStorage.js";
 import { rollLootboxRarity } from "../../resources/lootboxes.js";
 import { type Rarity } from "../../resources/rarities.js";
+import { debugLog } from "../../debugSettings.js";
 
 export default {
     name: "buttonInteraction",
@@ -68,6 +69,10 @@ export default {
                         if (!(error instanceof PlayerConflictError) || attempt >= 2) throw error;
                     }
                 }
+                debugLog("lootboxes", interaction.channelId,
+                    `Prestige lootbox chance: 100% (guaranteed); awarded ${lootbox} lootbox`,
+                    { userId: user.id, username: user.username, guild: interaction.guild?.name,
+                        channel: interaction.channel && "name" in interaction.channel ? interaction.channel.name ?? undefined : undefined });
                 await interaction.reply({
                     content: `You selected the ${(interaction.component as ButtonComponent).label} buff! Your experience, level, skills, and skill points have been reset, but you kept your money. ${buff.description} You received a **${lootbox} lootbox**; open it with \`/lootbox open\`.${unequipped.length ? ` Unequipped due to lost slots: ${unequipped.map(key => getCompanion(key)?.name ?? key).join(", ")}.` : ""}`,
                     flags: [MessageFlags.Ephemeral]

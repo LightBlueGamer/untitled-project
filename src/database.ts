@@ -64,6 +64,12 @@ export async function initDatabase(): Promise<void> {
             PRIMARY KEY (topic, scope)
         )
     `);
+        await client.query(`
+            INSERT INTO debug_settings (topic, scope)
+            SELECT DISTINCT topic, 'global' FROM debug_settings WHERE scope <> 'global'
+            ON CONFLICT DO NOTHING
+        `);
+        await client.query("DELETE FROM debug_settings WHERE scope <> 'global'");
         await client.query("COMMIT");
     } catch (error) {
         await client.query("ROLLBACK");

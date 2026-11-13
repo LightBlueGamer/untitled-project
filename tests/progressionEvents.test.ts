@@ -45,6 +45,9 @@ describe("progression events", () => {
         } as unknown as Message);
         expect(savePlayerWithLootbox).toHaveBeenCalledWith(player, "Common");
         expect(send).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("Common lootbox") }));
+        expect(diagnostics.debugLog).toHaveBeenCalledWith("lootboxes", undefined,
+            "Message lootbox chance: 0.2% (1 in 500); awarded Common lootbox",
+            expect.objectContaining({ userId: player.id }));
     });
 
     test("a roll at the 1/500 threshold does not award a box", async () => {
@@ -61,6 +64,27 @@ describe("progression events", () => {
         expect(save).toHaveBeenCalledOnce();
         expect(send).not.toHaveBeenCalled();
         expect(savePlayerWithLootbox).not.toHaveBeenCalledWith(player, expect.anything());
+        expect(diagnostics.debugLog).toHaveBeenCalledWith("lootboxes", undefined,
+            "Message lootbox chance: 0.2% (1 in 500); no lootbox",
+            expect.objectContaining({ userId: player.id }));
+    });
+
+    test("logs the successful retry's boosted lootbox chance exactly once", async () => {
+        vi.useFakeTimers();
+        vi.spyOn(Math, "random").mockReturnValue(0.9);
+        vi.mocked(lootboxDropChance).mockReturnValueOnce(0.002).mockReturnValueOnce(0.004);
+        const stale = new Player("Test", "retry-box");
+        const fresh = new Player("Test", "retry-box");
+        vi.spyOn(Player, "get").mockResolvedValueOnce(stale).mockResolvedValueOnce(fresh);
+        vi.spyOn(stale, "save").mockRejectedValue(new PlayerConflictError());
+        vi.spyOn(fresh, "save").mockResolvedValue();
+        await messageEvent.execute({
+            member: { id: "retry-box", user: { username: "Alice", bot: false } },
+            guild: { name: "Guild" }, channelId: "channel", client: {}, channel: { name: "general", send: vi.fn() },
+        } as unknown as Message);
+        const logs = diagnostics.debugLog.mock.calls.filter(call => call[0] === "lootboxes");
+        expect(logs).toEqual([["lootboxes", "channel", "Message lootbox chance: 0.4% (1 in 250); no lootbox",
+            { userId: "retry-box", username: "Alice", guild: "Guild", channel: "general" }]]);
     });
 
     test("logs the rounded money actually awarded", async () => {
@@ -70,13 +94,14 @@ describe("progression events", () => {
         vi.spyOn(Player, "get").mockResolvedValue(player);
         vi.spyOn(player, "save").mockResolvedValue();
         const message = {
-            member: { id: "rounded-money", user: { bot: false } },
-            channelId: "channel", client: {}, channel: { send: vi.fn() },
+            member: { id: "rounded-money", user: { bot: false, username: "Alice" } },
+            guild: { name: "Test guild" }, channelId: "channel", client: {}, channel: { name: "general", send: vi.fn() },
         } as unknown as Message;
         await messageEvent.execute(message);
         expect(player.balance).toBe(52);
         expect(diagnostics.debugLog).toHaveBeenCalledWith(
             "rewards", "channel", expect.stringContaining("15 XP, 52 money, 0 skill points"),
+            { userId: "rounded-money", username: "Alice", guild: "Test guild", channel: "general" },
         );
     });
 
@@ -112,7 +137,7 @@ describe("progression events", () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(sentMessage.delete).toHaveBeenCalledOnce();
         expect(diagnostics.debugLog).toHaveBeenCalledWith("rewards", undefined,
-            expect.stringContaining("15 XP, 50 money, 2 skill points"));
+            expect.stringContaining("15 XP, 50 money, 2 skill points"), expect.objectContaining({ userId: "retry-level" }));
     });
 
     test("keeps the same jackpot roll on retry and announces only after saving", async () => {
@@ -173,6 +198,7 @@ describe("progression events", () => {
         await messageEvent.execute(message);
         expect(send).not.toHaveBeenCalled();
         expect(console.error).toHaveBeenCalled();
+        expect(diagnostics.debugLog.mock.calls.filter(call => call[0] === "lootboxes")).toHaveLength(0);
     });
 
     test("special skills only roll for rewarded messages outside the cooldown", async () => {
@@ -190,10 +216,12 @@ describe("progression events", () => {
         await messageEvent.execute(message);
         expect(save).toHaveBeenCalledTimes(1);
         expect(random).toHaveBeenCalledTimes(4);
+        expect(diagnostics.debugLog.mock.calls.filter(call => call[0] === "lootboxes")).toHaveLength(1);
         await vi.advanceTimersByTimeAsync(30000);
         await messageEvent.execute(message);
         expect(save).toHaveBeenCalledTimes(2);
         expect(random).toHaveBeenCalledTimes(8);
+        expect(diagnostics.debugLog.mock.calls.filter(call => call[0] === "lootboxes")).toHaveLength(2);
     });
 
     test("prestige retries with current skills and resets them before confirming", async () => {
@@ -220,6 +248,10 @@ describe("progression events", () => {
         expect(fresh.toJSON()).toMatchObject({ level: 1, prestige: 1, skillPoints: 0, skills: [] });
         expect(fresh.save).toHaveBeenCalledOnce();
         expect(savePlayerWithLootbox).toHaveBeenCalledWith(fresh, expect.any(String));
+        expect(diagnostics.debugLog.mock.calls.filter(call => call[0] === "lootboxes")).toEqual([
+            ["lootboxes", undefined, expect.stringMatching(/^Prestige lootbox chance: 100% \(guaranteed\); awarded .* lootbox$/),
+                expect.objectContaining({ userId: "prestige" })],
+        ]);
         expect(reply).toHaveBeenCalledWith(expect.objectContaining({
             content: expect.stringContaining("skills, and skill points have been reset"),
         }));

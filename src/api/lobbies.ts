@@ -3,6 +3,7 @@ import { Router } from "express";
 import { getPool } from "../database.js";
 import Player from "../classes/Player.js";
 import { adjustBalance, applyHousePayoutBonus, recordBets } from "./casino.js";
+import { profileNameEvents } from "../profileNameEvents.js";
 
 // Multiplayer lobbies live in memory, so they are lost if the server restarts.
 
@@ -44,6 +45,7 @@ const MAX_LOBBIES = 200;
 interface Member {
     id: string;
     name: string;
+    username?: string;
     lastSeen: number;
     left: boolean;
     auto: boolean;
@@ -113,6 +115,14 @@ interface Lobby {
 
 const lobbies = new Map<string, Lobby>();
 const userLobby = new Map<string, string>();
+
+profileNameEvents.on("changed", (userId, name) => {
+    for (const lobby of lobbies.values()) {
+        const member = lobby.members.find(item => item.id === userId);
+        if (member) member.name = name;
+        if (lobby.bills.lastRoll?.id === userId) lobby.bills.lastRoll.name = name;
+    }
+});
 const busyUsers = new Set<string>();
 
 function newMember(id: string, name: string): Member {
@@ -325,7 +335,7 @@ function finishBills(lobby: Lobby, winnerId: string): void {
         money(
             recordBets(member.id, "bills", [
                 { bet: stake, payout: member.id === winnerId ? pot : 0 },
-            ]),
+            ], member.username ?? member.name),
         );
         if (userLobby.get(member.id) === lobby.id) {
             userLobby.delete(member.id);
@@ -437,7 +447,7 @@ function cleanupSeats(lobby: Lobby): void {
             money(
                 recordBets(member.id, "poker", [
                     { bet: Math.max(1, member.invested), payout },
-                ]),
+                ], member.username ?? member.name),
             );
         }
         if (userLobby.get(member.id) === lobby.id) {
@@ -1088,6 +1098,7 @@ lobbiesRouter.post("/", async (request, response) => {
             return;
         }
         const member = newMember(userId, name);
+        member.username = response.locals.username;
         if (game === "poker") {
             member.chips = cost;
             member.invested = cost;
@@ -1143,6 +1154,7 @@ lobbiesRouter.post("/:id/join", async (request, response) => {
             return;
         }
         const member = newMember(userId, name);
+        member.username = response.locals.username;
         if (lobby.game === "poker") {
             member.chips = cost;
             member.invested = cost;

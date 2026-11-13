@@ -5,6 +5,7 @@ import { companions } from "../../resources/companions.js";
 import { items } from "../../resources/items.js";
 import { describeLootboxBoost } from "../../resources/lootboxes.js";
 import { websiteUrl } from "../website.js";
+import { debugLog } from "../../debugSettings.js";
 
 export default {
     devMode: false,
@@ -30,7 +31,20 @@ export default {
                     `#${boost.id}: ${describeLootboxBoost(boost.bonus_type)} ×${boost.multiplier.toFixed(2)} for ${boost.duration_minutes} min`);
                 await interaction.editReply(`**Lootboxes (${boxes.length})**\n${boxLines.join("\n") || "None"}${boxes.length > 15 ? "\nMore available in open autocomplete." : ""}\n\n**Boosts (${boosts.length})**\n${boostLines.join("\n") || "None"}${boosts.length > 10 ? "\nMore available in boost autocomplete." : ""}`);
             } else if (action === "open") {
-                const result = await openLootbox(player.id, interaction.options.getString("box", true));
+                const boxId = interaction.options.getString("box", true);
+                const result = await openLootbox(player.id, boxId);
+                if (result.status !== "missing") {
+                    const reward = result.reward;
+                    const description = reward.type === "item"
+                        ? `item ${items[reward.key].name} (${reward.key}, ${items[reward.key].rarity})`
+                        : reward.type === "companion"
+                            ? `companion ${companions[reward.key].name} (${reward.key}, ${companions[reward.key].rarity})`
+                            : `boost ${describeLootboxBoost(reward.bonus)} x${reward.multiplier.toFixed(2)} for ${reward.durationMinutes} minutes`;
+                    debugLog("lootboxes", interaction.channelId,
+                        `${result.rarity} lootbox #${boxId}: ${description}; ${result.status === "full" ? "reward saved, backpack full" : "reward awarded"}${result.previouslyPending ? " (previously saved reward)" : ""}`,
+                        { userId: interaction.user.id, username: interaction.user.username, guild: interaction.guild?.name,
+                            channel: interaction.channel && "name" in interaction.channel ? interaction.channel.name ?? undefined : undefined });
+                }
                 if (result.status === "missing") {
                     await interaction.editReply("You do not own that lootbox.");
                 } else if (result.status === "full") {

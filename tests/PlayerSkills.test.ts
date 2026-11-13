@@ -27,6 +27,7 @@ describe("player skill persistence", () => {
         player.addBalance(10);
         await player.save();
         expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([false, false, "[]", "3", false, 0, "[]", false, false, 0]);
+        expect(mocks.query.mock.calls[0][0]).toContain("jsonb_build_object('name', COALESCE(players.data->'name', EXCLUDED.data->'name'))");
         expect(player.skills).toEqual(["experience_gain_1"]);
         expect(player.skillPoints).toBe(2);
         expect(mocks.del).toHaveBeenCalledWith("player:1");

@@ -41,19 +41,20 @@ describe("lootbox storage", () => {
     test("a full backpack preserves the rolled reward and never rerolls it", async () => {
         const options = { used: 10 };
         const client = mockClient(options);
-        expect(await openLootbox("1", "1", () => 0)).toEqual({ status: "full" });
+        const full = await openLootbox("1", "1", () => 0);
+        expect(full).toMatchObject({ status: "full", rarity: Rarity.Rare, previouslyPending: false });
         const save = client.query.mock.calls.find(call => call[0].includes("SET pending_reward"));
         expect(JSON.parse(String(save?.[1]?.[1]))).toMatchObject({ type: "item" });
         expect(client.query.mock.calls.some(call => call[0].includes("DELETE FROM player_lootboxes"))).toBe(false);
         options.used = 9;
         const opened = await openLootbox("1", "1", () => { throw new Error("must not reroll"); });
-        expect(opened).toEqual({ status: "opened", reward: JSON.parse(String(save?.[1]?.[1])) });
+        expect(opened).toEqual({ status: "opened", rarity: Rarity.Rare, previouslyPending: true, reward: JSON.parse(String(save?.[1]?.[1])) });
         expect(client.query.mock.calls.at(-1)?.[0]).toBe("COMMIT");
     });
 
     test("an item reward is saved and the box consumed within the same transaction", async () => {
         const client = mockClient({ used: 9, reward: { type: "item", key: "wild_berries" } });
-        expect(await openLootbox("1", "1")).toEqual({ status: "opened", reward: { type: "item", key: "wild_berries" } });
+        expect(await openLootbox("1", "1")).toEqual({ status: "opened", rarity: Rarity.Rare, previouslyPending: true, reward: { type: "item", key: "wild_berries" } });
         expect(client.query.mock.calls.some(call => call[0].includes("INSERT INTO player_items"))).toBe(true);
         expect(client.query.mock.calls.some(call => call[0].includes("DELETE FROM player_lootboxes"))).toBe(true);
         expect(client.query.mock.calls.at(-1)?.[0]).toBe("COMMIT");

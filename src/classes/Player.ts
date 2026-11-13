@@ -17,6 +17,7 @@ const companionInventoryQuery = `COALESCE(
      FROM player_companions pc WHERE pc.player_id = p.id), '[]'::jsonb)`;
 
 function progressionExperience(data: Partial<Data>): number {
+    // Historical reconstruction uses the original curve; changing it would invent past XP.
     let total = Math.max(0, data.experience ?? 0);
     const prestige = Math.max(0, Math.floor(data.prestige ?? 0));
     const level = Math.max(1, Math.floor(data.level ?? 1));
@@ -47,6 +48,7 @@ export default class Player {
     private savedEquippedCompanions: string[];
     private requireSkillSnapshot = false;
     private resettingSkills = false;
+    private missingStoredName = false;
     private companionInventory: OwnedCompanion[];
     private companionOperation: Promise<void> = Promise.resolve();
 
@@ -217,11 +219,12 @@ export default class Player {
             throw new Error('Level must be at least 1');
         }
 
-        return Math.floor(
+        const baseRequirement = Math.floor(
             25 +
             15 * level +
             50 * Math.pow(1.15, level - 1),
         );
+        return baseRequirement * Math.ceil(level / 10);
     }
 
     public get experienceMultiplier(): number {
@@ -546,6 +549,7 @@ export default class Player {
 
             const { name, ...data } = storedData;
             const player = new Player(name ?? id, id, data, result.rows[0].companions);
+            player.missingStoredName = !name;
             return player;
         } finally {
             if (!transactionClient) dbClient.release();
@@ -557,7 +561,7 @@ export default class Player {
         const existingPlayer = await Player.findById(id);
 
         if (existingPlayer) {
-            if (existingPlayer.name === id) {
+            if (existingPlayer.missingStoredName) {
                 existingPlayer.name = (
                     await discordClient.users.fetch(id)
                 ).username;
@@ -654,6 +658,7 @@ export default class Player {
                           ELSE jsonb_build_object('totalExperience',
                               COALESCE((players.data->>'totalExperience')::numeric,
                                        (players.data->>'experience')::numeric, 0)) END
+                     || jsonb_build_object('name', COALESCE(players.data->'name', EXCLUDED.data->'name'))
                  WHERE (NOT ($3::boolean OR $7::boolean) OR COALESCE(players.data->'skills', '[]'::jsonb) = $5::jsonb)
                    AND (NOT $4::boolean OR COALESCE(players.data->'skillPoints', '0'::jsonb) = $6::jsonb)
                    AND COALESCE((players.data->>'prestige')::numeric, 0) = $8::numeric

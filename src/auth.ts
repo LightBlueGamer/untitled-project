@@ -245,6 +245,29 @@ export async function loadSession(
     }
 }
 
+export function isDeveloper(user: { id: string } | null): boolean {
+    const developerId = process.env.DEVELOPER_ID;
+    return Boolean(developerId && user && user.id === developerId);
+}
+
+export const requireDeveloper: RequestHandler = async (request, response, next) => {
+    try {
+        response.setHeader("Cache-Control", "no-store");
+        const user = await loadSession(request.headers.cookie);
+        if (!user) {
+            response.status(401).send("Login required");
+            return;
+        }
+        if (!isDeveloper(user)) {
+            response.status(403).send("Developer access required");
+            return;
+        }
+        next();
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const requireLogin: RequestHandler = async (request, response, next) => {
     try {
         const user = await loadSession(request.headers.cookie);
@@ -266,5 +289,6 @@ authApiRouter.get("/me", async (request, response) => {
     response.json({
         enabled: oauthConfiguration() !== null,
         user,
+        isDeveloper: isDeveloper(user),
     });
 });

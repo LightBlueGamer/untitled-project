@@ -9,11 +9,11 @@ const catalog = [
     { key: "child", name: "Child", description: "Next", prerequisites: ["root"], cost: 2, effect: "experience" },
 ];
 
-function createPage(fetch: ReturnType<typeof vi.fn>, search = "") {
+function createPage(fetch: ReturnType<typeof vi.fn>, search = "", resizeObserver?: unknown) {
     const elements = Object.fromEntries(
         ["skillTree", "skillPoints", "skillTreeStatus", "retrySkillTree", "skillDetails", "skillTreeViewport", "skillTooltip",
             "skillZoomIn", "skillZoomOut", "skillZoomReset", "skillZoomLevel",
-            "skillTreeOwner", "skillTreeInstructions", "skillTreeLegend", "skillBackProfile"].map((id) => [id, {
+            "skillTreeOwner", "skillTreeInstructions", "skillTreeLegend", "skillBackProfile", "skillBalance"].map((id) => [id, {
             innerHTML: "",
             textContent: "",
             disabled: false,
@@ -34,9 +34,9 @@ function createPage(fetch: ReturnType<typeof vi.fn>, search = "") {
         }]),
     );
     const context = createContext({
-        document: { querySelector: (selector: string) => elements[selector.slice(1)] },
-        window: { innerWidth: 1000, innerHeight: 800 },
-        location: { search }, URLSearchParams,
+        document: { querySelector: (selector: string) => selector === ".skill-tree" ? elements.skillTree : elements[selector.slice(1)], body: { classList: { add: vi.fn() } } },
+        window: { innerWidth: 1000, innerHeight: 800, ResizeObserver: resizeObserver, parent: { postMessage: vi.fn() } },
+        location: { search, origin: "https://ledger.example" }, URLSearchParams,
         fetch,
         encodeURIComponent,
     });
@@ -49,6 +49,34 @@ const response = (data: object, ok = true, status = 200) => ({
 });
 
 describe("skill tree page", () => {
+    test("embedded trees preserve editable and read-only API behavior", async () => {
+        const ownFetch = vi.fn().mockResolvedValue(response({ skills: catalog, unlocked: [], skillPoints: 3 }));
+        const own = createPage(ownFetch, "?embed=1");
+        await vi.waitFor(() => expect(ownFetch).toHaveBeenCalledWith("/api/skills", { cache: "no-store" }));
+        expect(runInContext("document.body.classList.add", own.context)).toHaveBeenCalledWith("embedded-skill-tree");
+        const otherFetch = vi.fn().mockResolvedValue(response({ name: "Other", skills: catalog, unlocked: [], skillPoints: 3 }));
+        const other = createPage(otherFetch, "?embed=1&player=other");
+        await vi.waitFor(() => expect(otherFetch).toHaveBeenCalledWith("/api/skills/player/other", { cache: "no-store" }));
+        expect(runInContext("readOnlyTree", other.context)).toBe(true);
+    });
+
+    test("reports embedded tree height after the content changes", async () => {
+        let notifyResize: (() => void) | undefined;
+        const observe = vi.fn();
+        class FakeResizeObserver {
+            constructor(callback: () => void) { notifyResize = callback; }
+            observe = observe;
+        }
+        const fetch = vi.fn().mockResolvedValue(response({ skills: catalog, unlocked: [], skillPoints: 0 }));
+        const { context, elements } = createPage(fetch, "?embed=1", FakeResizeObserver);
+        await vi.waitFor(() => expect(elements.skillPoints.textContent).toBe("Available skill points: 0"));
+        expect(observe).toHaveBeenCalledWith(elements.skillTree);
+        notifyResize?.();
+        expect(context.window.parent.postMessage).toHaveBeenCalledWith(
+            { type: "skill-tree-height", height: 500 }, "https://ledger.example",
+        );
+    });
+
     test("keeps the expanded skill catalog on its mapped tree and shows the casino branch", async () => {
         const keysBySkill = new Map(Object.entries(skills).map(([key, skill]) => [skill, key]));
         const fullCatalog = Object.entries(skills).map(([key, skill]) => ({
@@ -68,6 +96,7 @@ describe("skill tree page", () => {
         await vi.waitFor(() => expect(elements.skillPoints.textContent).toBe("Available skill points: 0"));
         expect(elements.skillTree.innerHTML).toContain("branch-casino");
         expect(elements.skillTree.innerHTML).toContain("skill-tree-zoom-frame");
+        expect(elements.skillBalance.innerHTML).not.toContain("Other</span>");
     });
 
     test("another player's tree is read-only and links back to their profile", async () => {
@@ -106,6 +135,7 @@ describe("skill tree page", () => {
         expect(fetch).toHaveBeenLastCalledWith("/api/skills/root", { method: "POST" });
         expect(elements.skillPoints.textContent).toBe("Available skill points: 2");
         expect(elements.skillDetails.innerHTML).toContain("Unlocked");
+        expect(elements.skillBalance.innerHTML).toContain("1/2");
         expect(elements.skillTree.innerHTML).toContain("Child: Available");
         runInContext('selectSkill("child")', context);
         expect(elements.skillDetails.innerHTML).toContain("Unlock for 2 points");
@@ -118,11 +148,24 @@ describe("skill tree page", () => {
             .mockResolvedValueOnce(response({ skills: catalog, unlocked: [], skillPoints: 0 }));
         const { context, elements } = createPage(fetch);
         await vi.waitFor(() => expect(elements.skillTreeStatus.textContent).toContain("Player not found"));
+        expect(elements.skillBalance.innerHTML).toContain("Skill balance unavailable");
         expect(elements.retrySkillTree.classList.remove).toHaveBeenCalledWith("hidden");
         await runInContext("refreshSkillTree()", context);
         expect(elements.skillPoints.textContent).toBe("Available skill points: 0");
         runInContext('selectSkill("root")', context);
         expect(elements.skillDetails.innerHTML).toContain("Not enough points");
+    });
+
+    test("places instructions and skill balance after the navigable tree", () => {
+        const html = readFileSync("public/skills.html", "utf8");
+        const viewport = html.indexOf('id="skillTreeViewport"');
+        expect(viewport).toBeGreaterThan(-1);
+        expect(html.indexOf('id="skillTreeInstructions"')).toBeGreaterThan(viewport);
+        expect(html.indexOf('id="skillTreeLegend"')).toBeGreaterThan(viewport);
+        expect(html.indexOf('id="skillBalance"')).toBeGreaterThan(viewport);
+        const css = readFileSync("public/styles/main.css", "utf8");
+        expect(css).toContain("scrollbar-width: none");
+        expect(css).toContain(".skill-tree-viewport::-webkit-scrollbar");
     });
 
     test("clears stale purchase state if refreshing after an error fails", async () => {
@@ -136,7 +179,24 @@ describe("skill tree page", () => {
         expect(elements.skillTreeStatus.textContent).toContain("Not enough skill points");
         expect(elements.skillTreeStatus.textContent).toContain("Network error");
         expect(elements.skillTree.innerHTML).toBe("");
+        expect(elements.skillBalance.innerHTML).toContain("Skill balance unavailable");
         expect(elements.retrySkillTree.classList.remove).toHaveBeenCalledWith("hidden");
+    });
+
+    test("shows category completion for the viewed player's unlocked skills and handles unknown categories", async () => {
+        const fetch = vi.fn().mockResolvedValue(response({
+            name: "Other",
+            skills: [...catalog,
+                { key: "income", name: "Income", description: "", prerequisites: [], cost: 1, effect: "balance" },
+                { key: "new", name: "New", description: "", prerequisites: [], cost: 1, effect: "newEffect" }],
+            unlocked: ["root", "new"], skillPoints: 0,
+        }));
+        const { elements } = createPage(fetch, "?player=other");
+        await vi.waitFor(() => expect(elements.skillBalance.innerHTML).toContain("Experience"));
+        expect(elements.skillBalance.innerHTML).toContain("1/2");
+        expect(elements.skillBalance.innerHTML).toContain("Economy</span><strong>0/1");
+        expect(elements.skillBalance.innerHTML).toContain("Other</span><strong>1/1");
+        expect(elements.skillBalance.innerHTML).toContain('class="skill-balance-fill"');
     });
 
     test("refreshes points and unlocks when another purchase made the page stale", async () => {

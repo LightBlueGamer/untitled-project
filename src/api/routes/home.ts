@@ -25,6 +25,7 @@ interface DiscordStats {
 
 router.get("/", async (_request, response) => {
     try {
+        // The lifetime XP fallback intentionally uses the legacy curve, matching Player's historical estimate.
         const [result, cachedDiscordStats] = await Promise.all([
             getPool().query<HomeStatsRow>(`
                 WITH totals AS (

@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Skill Tree | Prestigious Ledger</title>
+    <script src="/scripts/theme.js"></script>
     <link rel="stylesheet" href="/styles/main.css">
   </head>
   <body>
@@ -22,11 +23,6 @@
             <div>
               <span id="skillTreeOwner" class="eyebrow">Your progression</span>
               <p id="skillPoints"></p>
-              <p id="skillTreeInstructions">Hover over a skill to see its effect; select it to unlock it. Gain one skill point per level before skill bonuses.</p>
-              <p id="skillTreeLegend">Glowing nodes are unlocked; colored outlines are available; grey nodes are locked or unaffordable.</p>
-              <p>Base skills line up in the center and branch outward. Hover, focus or select a skill to highlight its full prerequisite path.</p>
-              <p>Experience skills are green, income skills are gold, skill point skills are red, and house-game payout skills are orange.</p>
-              <p>Drag the tree to explore and use the mouse wheel or zoom buttons to zoom. On a keyboard, focus the tree and use the arrow keys, or tab through skills.</p>
             </div>
             <p class="skill-reset-note">Prestiging resets all skills and unspent points.</p>
           </div>
@@ -43,6 +39,23 @@
           </div>
           <div id="skillTooltip" class="skill-tooltip hidden" role="tooltip"></div>
           <section id="skillDetails" class="skill-details hidden" aria-label="Selected skill"></section>
+          <div class="skill-tree-guide">
+            <section class="skill-guide-copy" aria-labelledby="skillGuideTitle">
+              <span class="eyebrow">A guide to your journey</span>
+              <h2 id="skillGuideTitle">Exploring the tree</h2>
+              <p id="skillTreeInstructions">Hover over a skill to see its effect; select it to unlock it. Gain one skill point per level before skill bonuses.</p>
+              <p id="skillTreeLegend">Glowing nodes are unlocked; colored outlines are available; grey nodes are locked or unaffordable.</p>
+              <p>Base skills line up in the center and branch outward. Hover, focus or select a skill to highlight its full prerequisite path.</p>
+              <p>Experience skills are green, income skills are gold, skill point skills are red, and house-game payout skills are orange.</p>
+              <p>Drag the tree to explore and use the mouse wheel or zoom buttons to zoom. On a keyboard, focus the tree and use the arrow keys, or tab through skills.</p>
+            </section>
+            <section class="skill-balance" aria-labelledby="skillBalanceTitle">
+              <span class="eyebrow">Your path</span>
+              <h2 id="skillBalanceTitle">Skill balance</h2>
+              <p>Share of skills unlocked in each category, not the strength of their effects.</p>
+              <div id="skillBalance" aria-live="polite"><p class="skill-balance-empty">Loading skill balance…</p></div>
+            </section>
+          </div>
         </section>
       </main>
     </div>

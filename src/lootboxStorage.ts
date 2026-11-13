@@ -74,7 +74,7 @@ export async function getLootboxBonuses(playerId: string): Promise<Record<Lootbo
 }
 
 export async function openLootbox(playerId: string, id: string, random: () => number = Math.random):
-    Promise<{ status: "opened"; reward: LootboxReward } | { status: "full" } | { status: "missing" }> {
+    Promise<{ status: "opened" | "full"; reward: LootboxReward; rarity: Rarity; previouslyPending: boolean } | { status: "missing" }> {
     if (!/^[1-9]\d*$/.test(id)) return { status: "missing" };
     const client = await getPool().connect();
     try {
@@ -110,7 +110,7 @@ export async function openLootbox(playerId: string, id: string, random: () => nu
                 await client.query("UPDATE player_lootboxes SET pending_reward = $2::jsonb WHERE id::text = $1",
                     [id, JSON.stringify(reward)]);
                 await client.query("COMMIT");
-                return { status: "full" };
+                return { status: "full", reward, rarity: row.rarity, previouslyPending: row.pending_reward !== null };
             }
             await client.query(
                 `INSERT INTO player_items (player_id, item_key, quantity) VALUES ($1, $2, 1)
@@ -133,7 +133,7 @@ export async function openLootbox(playerId: string, id: string, random: () => nu
         await client.query("DELETE FROM player_lootboxes WHERE id::text = $1 AND player_id = $2", [id, playerId]);
         await client.query("COMMIT");
         if (reward.type === "companion") await invalidate(playerId);
-        return { status: "opened", reward };
+        return { status: "opened", reward, rarity: row.rarity, previouslyPending: row.pending_reward !== null };
     } catch (error) {
         await client.query("ROLLBACK");
         throw error;

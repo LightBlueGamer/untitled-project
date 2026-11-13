@@ -40,12 +40,14 @@ describe("scavenge command", () => {
         await command.execute(interaction);
         expect(deferReply).toHaveBeenCalledWith();
         const embed = editReply.mock.calls[0][0].embeds[0].toJSON();
+        expect(embed.description).toContain("**Test** (<@1>)");
         expect(embed.description).toContain("[Wild Berries](https://game.example/item?key=wild_berries) ×2");
         expect(embed.fields).toEqual(expect.arrayContaining([
             expect.objectContaining({ name: "Chance", value: "Approximately 1/123 per search" }),
             expect.objectContaining({ name: "Experience earned", value: "20 XP" }),
         ]));
         const announcement = followUp.mock.calls[0][0];
+        expect(announcement.content).toContain("**Test** (<@1>)");
         expect(announcement.components[0].toJSON().components[0].url).toBe("https://game.example/skills");
         await vi.advanceTimersByTimeAsync(29_999);
         expect(deleted).not.toHaveBeenCalled();

@@ -85,6 +85,7 @@ const requireSession: RequestHandler = async (request, response, next) => {
             return;
         }
         response.locals.userId = user.id;
+        response.locals.username = user.username;
         response.setHeader("Cache-Control", "no-store");
         next();
     } catch (error) {
@@ -100,8 +101,10 @@ export async function recordBets(
     userId: string,
     game: "plinko" | "blackjack" | "bills" | "poker",
     rounds: { bet: number; payout: number }[],
+    username?: string,
 ): Promise<void> {
-    debugLog("gambling", "global", `Player ${userId}, ${game}: ${rounds.length} round(s), wager ${rounds.reduce((sum, round) => sum + round.bet, 0)}, payout ${rounds.reduce((sum, round) => sum + round.payout, 0)}`);
+    debugLog("gambling", "global", `Player ${userId}, ${game}: ${rounds.length} round(s), wager ${rounds.reduce((sum, round) => sum + round.bet, 0)}, payout ${rounds.reduce((sum, round) => sum + round.payout, 0)}`,
+        { userId, username, guild: "Website", channel: "Casino" });
     try {
         await getPool().query(
             `INSERT INTO casino_bets (user_id, game, bet, payout)
@@ -322,6 +325,7 @@ casinoRouter.post("/plinko", async (request, response) => {
         userId,
         "plinko",
         drops.map((drop) => ({ bet, payout: drop.payout })),
+        response.locals.username,
     );
 
     response.json({
@@ -485,7 +489,7 @@ casinoRouter.post("/bills", async (request, response) => {
     }
 
     await Player.invalidate(userId);
-    await recordBets(userId, "bills", [{ bet: stake, payout }]);
+    await recordBets(userId, "bills", [{ bet: stake, payout }], response.locals.username);
 
     response.json({
         ...game,
@@ -574,7 +578,7 @@ function blackjackView(state: BlackjackState, balance: number, outcome?: Outcome
 }
 
 // Dealer stands on all 17s. Pays 3:2 for blackjack, 1:1 for wins, and returns the bet on a push.
-async function settleBlackjack(userId: string, state: BlackjackState, busted: boolean) {
+async function settleBlackjack(userId: string, state: BlackjackState, busted: boolean, username?: string) {
     let outcome: Outcome;
     let payout: number;
 
@@ -615,7 +619,7 @@ async function settleBlackjack(userId: string, state: BlackjackState, busted: bo
     payout = applyHousePayoutBonus(payout, state.bet, state.casinoPayoutMultiplier ?? 1);
 
     await getCache().del(blackjackKey(userId));
-    await recordBets(userId, "blackjack", [{ bet: state.bet, payout }]);
+    await recordBets(userId, "blackjack", [{ bet: state.bet, payout }], username);
     const balance =
         payout > 0
             ? ((await adjustBalance(userId, payout, 0)) ?? (await currentBalance(userId)))
@@ -687,7 +691,7 @@ casinoRouter.post("/blackjack/start", async (request, response) => {
 
     try {
         if (handValue(state.player) === 21 || isBlackjack(state.dealer)) {
-            response.json(await settleBlackjack(userId, state, false));
+            response.json(await settleBlackjack(userId, state, false, response.locals.username));
             return;
         }
         await saveBlackjack(userId, state);
@@ -728,7 +732,7 @@ casinoRouter.post("/blackjack/action", async (request, response) => {
         }
         state.bet *= 2;
         state.player.push(drawCard());
-        response.json(await settleBlackjack(userId, state, handValue(state.player) > 21));
+        response.json(await settleBlackjack(userId, state, handValue(state.player) > 21, response.locals.username));
         return;
     }
 
@@ -736,11 +740,11 @@ casinoRouter.post("/blackjack/action", async (request, response) => {
         state.player.push(drawCard());
         const total = handValue(state.player);
         if (total > 21) {
-            response.json(await settleBlackjack(userId, state, true));
+            response.json(await settleBlackjack(userId, state, true, response.locals.username));
             return;
         }
         if (total === 21) {
-            response.json(await settleBlackjack(userId, state, false));
+            response.json(await settleBlackjack(userId, state, false, response.locals.username));
             return;
         }
         await saveBlackjack(userId, state);
@@ -748,7 +752,7 @@ casinoRouter.post("/blackjack/action", async (request, response) => {
         return;
     }
 
-    response.json(await settleBlackjack(userId, state, false));
+    response.json(await settleBlackjack(userId, state, false, response.locals.username));
 });
 
 export default casinoRouter;

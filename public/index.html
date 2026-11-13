@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Prestigious Ledger | Discord Adventure Bot</title>
+    <script src="/scripts/theme.js"></script>
     <link rel="stylesheet" href="/styles/main.css">
   </head>
   <body>
@@ -11,15 +12,25 @@
       <header id="siteHeader"></header>
       <main>
         <section class="home-hero">
-          <div class="eyebrow">Your next adventure starts here</div>
-          <h1>Prestigious Ledger</h1>
-          <p>Chat, level up, master your skills, collect companions, and test your luck with friends.</p>
-          <div class="home-actions">
-            <a id="inviteBot" class="btn" href="#" target="_blank" rel="noopener noreferrer">Add to your server</a>
-            <a id="installUser" class="btn secondary-btn" href="#" target="_blank" rel="noopener noreferrer">Add to your account</a>
-            <a class="btn secondary-btn" href="/leaderboard">Explore the leaderboard</a>
+          <div class="home-hero-copy">
+            <div class="eyebrow">A Discord adventure, written by you</div>
+            <h1>Your story is <em>just beginning.</em></h1>
+            <p>Turn everyday conversation into an adventure. Grow your skills, discover companions, and leave your mark on the ledger.</p>
+            <div class="home-actions">
+              <a id="inviteBot" class="btn" href="#" target="_blank" rel="noopener noreferrer">Add to your server <span aria-hidden="true">↗</span></a>
+              <a id="installUser" class="btn secondary-btn" href="#" target="_blank" rel="noopener noreferrer">Add to your account</a>
+              <a class="home-text-link" href="/leaderboard">Explore the leaderboard <span aria-hidden="true">→</span></a>
+            </div>
+            <p id="inviteStatus" class="status" role="status"></p>
           </div>
-          <p id="inviteStatus" class="status" role="status"></p>
+          <div class="home-hero-art" aria-hidden="true">
+            <div class="hero-orbit hero-orbit-outer"></div>
+            <div class="hero-orbit hero-orbit-inner"></div>
+            <div class="hero-sigil"><span>✦</span></div>
+            <span class="hero-star hero-star-one">✧</span>
+            <span class="hero-star hero-star-two">✦</span>
+            <span class="hero-art-caption">THE ADVENTURE AWAITS</span>
+          </div>
         </section>
 
         <section class="home-stats" aria-label="Community statistics">
@@ -66,26 +77,32 @@
           </div>
           <div class="feature-grid">
             <article class="panel feature-card">
+              <span class="feature-icon" aria-hidden="true">✧</span>
               <h3>Grow through conversation</h3>
               <p>Earn XP and currency by chatting. Level up to gain skill points and unlock upgrades.</p>
             </article>
             <article class="panel feature-card">
+              <span class="feature-icon" aria-hidden="true">◇</span>
               <h3>Build your skill tree</h3>
               <p>Choose your path through connected skills that improve rewards and companion encounters.</p>
             </article>
             <article class="panel feature-card">
+              <span class="feature-icon" aria-hidden="true">✦</span>
               <h3>Find companions</h3>
               <p>Catch companions, collect their rarities, and equip them for bonuses to your progression.</p>
             </article>
             <article class="panel feature-card">
+              <span class="feature-icon" aria-hidden="true">♠</span>
               <h3>Play together</h3>
               <p>Visit the casino for Plinko, Blackjack, poker, Pass the Bills, and multiplayer lobbies.</p>
             </article>
             <article class="panel feature-card">
+              <span class="feature-icon" aria-hidden="true">♜</span>
               <h3>Prestige for lasting buffs</h3>
               <p>Reset your progression when you qualify to earn prestige levels and permanent bonuses.</p>
             </article>
             <article class="panel feature-card">
+              <span class="feature-icon" aria-hidden="true">⌘</span>
               <h3>Explore the guide</h3>
               <p>Learn about game systems, commands, skills, and companions in the <a href="/wiki">wiki</a>.</p>
             </article>

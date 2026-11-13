@@ -12,8 +12,21 @@ const skillZoomLevel = document.querySelector('#skillZoomLevel');
 const skillTreeOwner = document.querySelector('#skillTreeOwner');
 const skillTreeInstructions = document.querySelector('#skillTreeInstructions');
 const skillTreeLegend = document.querySelector('#skillTreeLegend');
+const skillBalance = document.querySelector('#skillBalance');
 const skillBackProfile = document.querySelector('#skillBackProfile');
 const viewedPlayerId = new URLSearchParams(location.search).get('player');
+const embeddedTree = new URLSearchParams(location.search).get('embed') === '1';
+if (embeddedTree) {
+  document.body.classList.add('embedded-skill-tree');
+  if (typeof window.ResizeObserver !== 'undefined') {
+    const treePanel = document.querySelector('.skill-tree');
+    const resizeObserver = new window.ResizeObserver(() => {
+      const height = treePanel.getBoundingClientRect().height;
+      if (height > 0) window.parent.postMessage({ type: 'skill-tree-height', height }, location.origin);
+    });
+    resizeObserver.observe(treePanel);
+  }
+}
 const readOnlyTree = Boolean(viewedPlayerId);
 if (readOnlyTree) {
   skillBackProfile.href = `/leaderboard?id=${encodeURIComponent(viewedPlayerId)}`;
@@ -60,6 +73,59 @@ const branchStyles = {
   lootboxFind: { label: 'Lootbox treasure', icon: '◆' },
   toolSlots: { label: 'Tool mastery', icon: '⚒' }
 };
+
+const balanceCategories = [
+  { label: 'Experience', effects: ['experience'] },
+  { label: 'Economy', effects: ['balance'] },
+  { label: 'Skill points', effects: ['skill'] },
+  { label: 'Companions', effects: ['companionSpawn', 'companionRarity'] },
+  { label: 'Casino', effects: ['casino'] },
+  { label: 'Scavenging', effects: ['scavenge', 'scavengeCooldown', 'scavengeRarity', 'scavengeFind', 'scavengeExperience', 'toolSlots'] },
+  { label: 'Lootboxes', effects: ['lootboxDrop', 'lootboxRarity', 'lootboxReward', 'lootboxFind'] }
+];
+
+function renderSkillBalance() {
+  const knownEffects = new Set(balanceCategories.flatMap(category => category.effects));
+  const otherEffects = [...new Set(treeData.skills.map(skill => skill.effect).filter(effect => !knownEffects.has(effect)))];
+  const categories = otherEffects.length
+    ? [...balanceCategories, { label: 'Other', effects: otherEffects }]
+    : balanceCategories;
+  const unlocked = new Set(treeData.unlocked);
+  const counts = categories.map(category => {
+    const skills = treeData.skills.filter(skill => category.effects.includes(skill.effect));
+    const owned = skills.filter(skill => unlocked.has(skill.key)).length;
+    return { ...category, owned, total: skills.length };
+  });
+  if (!treeData.skills.length) {
+    skillBalance.innerHTML = '<p class="skill-balance-empty">No skills are available to compare yet.</p>';
+    return;
+  }
+  const point = (index, radius) => {
+    const angle = -Math.PI / 2 + 2 * Math.PI * index / counts.length;
+    return [150 + radius * Math.cos(angle), 150 + radius * Math.sin(angle)];
+  };
+  const coordinates = (index, radius) => point(index, radius).map(value => value.toFixed(1)).join(',');
+  const rings = [25, 50, 75, 100].map(radius =>
+    `<polygon class="skill-balance-ring" points="${counts.map((_, index) => coordinates(index, radius)).join(' ')}" />`).join('');
+  const axes = counts.map((_, index) =>
+    `<line class="skill-balance-axis" x1="150" y1="150" x2="${point(index, 100)[0].toFixed(1)}" y2="${point(index, 100)[1].toFixed(1)}" />`).join('');
+  const values = counts.map((category, index) =>
+    coordinates(index, category.total ? 100 * category.owned / category.total : 0)).join(' ');
+  const markers = counts.map((category, index) => {
+    const [x, y] = point(index, category.total ? 100 * category.owned / category.total : 0);
+    return `<circle class="skill-balance-marker" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" />`;
+  }).join('');
+  const labels = counts.map((category, index) => {
+    const [x, y] = point(index, 120);
+    const anchor = x < 145 ? 'end' : x > 155 ? 'start' : 'middle';
+    return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle">${index + 1}</text>`;
+  }).join('');
+  skillBalance.innerHTML = `<svg class="skill-balance-chart" viewBox="0 0 300 300" aria-hidden="true">
+    ${rings}${axes}<polygon class="skill-balance-fill" points="${values}" />${markers}${labels}
+  </svg>
+  <ol class="skill-balance-list">${counts.map((category, index) =>
+    `<li><span><b>${index + 1}</b> ${escapeSkillText(category.label)}</span><strong>${category.owned}/${category.total}</strong></li>`).join('')}</ol>`;
+}
 
 // Coordinates use a shared grid; the catalog remains authoritative for prerequisites.
 const skillLayout = {
@@ -231,6 +297,7 @@ function renderSkillTree() {
   }).join('');
   treeGraphSize = nodes && clear ? { width: graphWidth, height } : null;
   skillPoints.textContent = `Available skill points: ${treeData.skillPoints.toLocaleString()}`;
+  renderSkillBalance();
   skillTree.innerHTML = !nodes ? '<p class="skill-tree-empty">No skills are available yet.</p>'
     : clear
       ? `<div class="skill-tree-zoom-frame" style="width:${graphWidth * treeZoom}px;height:${height * treeZoom}px"><div class="skill-tree-graph" style="width:${graphWidth}px;height:${height}px;transform:scale(${treeZoom})"><svg class="skill-links" viewBox="0 0 ${graphWidth} ${height}" aria-hidden="true">${connections}</svg>${nodes}</div></div>`
@@ -470,6 +537,7 @@ async function refreshSkillTree() {
     skillTreeStatus.textContent = '';
   } catch (error) {
     skillTreeStatus.textContent = `Could not load the skill tree. ${error.message}`;
+    if (!treeData) skillBalance.innerHTML = '<p class="skill-balance-empty">Skill balance unavailable. Retry to load it.</p>';
     retrySkillTree.classList.remove('hidden');
   }
 }
@@ -498,6 +566,7 @@ async function purchaseSkill(key) {
       skillDetails.innerHTML = '';
       skillDetails.classList.add('hidden');
       skillPoints.textContent = '';
+      skillBalance.innerHTML = '<p class="skill-balance-empty">Skill balance unavailable. Retry to load it.</p>';
       skillTreeStatus.textContent += ` Could not refresh: ${refreshError.message}`;
       retrySkillTree.classList.remove('hidden');
     }
