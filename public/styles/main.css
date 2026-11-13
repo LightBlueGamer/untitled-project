@@ -1941,6 +1941,21 @@ td.loss {
     color: var(--gold2);
 }
 
+.bj-next-card {
+    align-self: center;
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 215, 128, 0.55);
+    border-radius: 12px;
+    background: rgba(15, 20, 32, 0.7);
+    color: #ffe4a3;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.bj-next-card.hidden {
+    display: none;
+}
+
 .bj-label {
     color: #fff;
     font-size: 20px;

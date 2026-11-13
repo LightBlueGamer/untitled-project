@@ -178,6 +178,9 @@ introduced in that release.
 ## 2026-10-12 — Multiplayer casino
 
 - Added multiplayer lobbies, additional casino games, and a casino leaderboard.
+- The configured `DEVELOPER_ID` can privately preview the next card in solo
+  blackjack during an active hand. It is dealt to the player on Hit or Double,
+  or to the dealer first on Stand if the dealer needs to draw.
 
 ## 2026-10-11 — Casino games
 

@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 import { Router, type RequestHandler } from "express";
-import { loadSession } from "../auth.js";
+import { isDeveloper, loadSession } from "../auth.js";
 import { getCache, getPool } from "../database.js";
 import Player from "../classes/Player.js";
 import lobbiesRouter from "./lobbies.js";
@@ -86,6 +86,7 @@ const requireSession: RequestHandler = async (request, response, next) => {
         }
         response.locals.userId = user.id;
         response.locals.username = user.username;
+        response.locals.isDeveloper = isDeveloper(user);
         response.setHeader("Cache-Control", "no-store");
         next();
     } catch (error) {
@@ -518,12 +519,19 @@ interface BlackjackState {
     player: Card[];
     dealer: Card[];
     casinoPayoutMultiplier?: number;
+    nextCard?: Card;
 }
 
 const blackjackKey = (userId: string) => `blackjack:${userId}`;
 
 function drawCard(): Card {
     return { rank: RANKS[randomInt(RANKS.length)], suit: SUITS[randomInt(SUITS.length)] };
+}
+
+function takeBlackjackCard(state: BlackjackState): Card {
+    const card = state.nextCard ?? drawCard();
+    delete state.nextCard;
+    return card;
 }
 
 function handValue(cards: Card[]): number {
@@ -559,7 +567,7 @@ async function saveBlackjack(userId: string, state: BlackjackState): Promise<voi
     });
 }
 
-function blackjackView(state: BlackjackState, balance: number, outcome?: Outcome, payout = 0) {
+function blackjackView(state: BlackjackState, balance: number, outcome?: Outcome, payout = 0, developer = false) {
     const finished = outcome !== undefined;
     return {
         active: !finished,
@@ -574,6 +582,7 @@ function blackjackView(state: BlackjackState, balance: number, outcome?: Outcome
         payout,
         casinoPayoutMultiplier: state.casinoPayoutMultiplier ?? 1,
         balance,
+        ...(!finished && developer && state.nextCard ? { nextCard: state.nextCard } : {}),
     };
 }
 
@@ -591,7 +600,7 @@ async function settleBlackjack(userId: string, state: BlackjackState, busted: bo
 
         if (!playerBlackjack) {
             while (handValue(state.dealer) < 17) {
-                state.dealer.push(drawCard());
+                state.dealer.push(takeBlackjackCard(state));
             }
         }
 
@@ -648,7 +657,11 @@ casinoRouter.get("/blackjack", async (_request, response) => {
         response.json({ active: false, balance: await currentBalance(userId) });
         return;
     }
-    response.json(blackjackView(state, await currentBalance(userId)));
+    if (response.locals.isDeveloper && !state.nextCard) {
+        state.nextCard = drawCard();
+        await saveBlackjack(userId, state);
+    }
+    response.json(blackjackView(state, await currentBalance(userId), undefined, 0, response.locals.isDeveloper));
 });
 
 casinoRouter.post("/blackjack/start", async (request, response) => {
@@ -694,12 +707,13 @@ casinoRouter.post("/blackjack/start", async (request, response) => {
             response.json(await settleBlackjack(userId, state, false, response.locals.username));
             return;
         }
+        if (response.locals.isDeveloper) state.nextCard = drawCard();
         await saveBlackjack(userId, state);
     } catch (error) {
         await adjustBalance(userId, bet, 0);
         throw error;
     }
-    response.json(blackjackView(state, balance));
+    response.json(blackjackView(state, balance, undefined, 0, response.locals.isDeveloper));
 });
 
 casinoRouter.post("/blackjack/action", async (request, response) => {
@@ -731,13 +745,13 @@ casinoRouter.post("/blackjack/action", async (request, response) => {
             return;
         }
         state.bet *= 2;
-        state.player.push(drawCard());
+        state.player.push(takeBlackjackCard(state));
         response.json(await settleBlackjack(userId, state, handValue(state.player) > 21, response.locals.username));
         return;
     }
 
     if (action === "hit") {
-        state.player.push(drawCard());
+        state.player.push(takeBlackjackCard(state));
         const total = handValue(state.player);
         if (total > 21) {
             response.json(await settleBlackjack(userId, state, true, response.locals.username));
@@ -747,8 +761,9 @@ casinoRouter.post("/blackjack/action", async (request, response) => {
             response.json(await settleBlackjack(userId, state, false, response.locals.username));
             return;
         }
+        if (response.locals.isDeveloper) state.nextCard = drawCard();
         await saveBlackjack(userId, state);
-        response.json(blackjackView(state, await currentBalance(userId)));
+        response.json(blackjackView(state, await currentBalance(userId), undefined, 0, response.locals.isDeveloper));
         return;
     }
 

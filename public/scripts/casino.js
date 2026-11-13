@@ -781,6 +781,7 @@ autoButton.addEventListener('click', toggleAuto);
   const actions = $('#bjActions');
   const dealButton = $('#bjDeal');
   const doubleButton = $('#bjDouble');
+  const nextCard = $('#bjNextCard');
   const buttons = document.querySelectorAll('#game-blackjack button');
 
   const OUTCOMES = {
@@ -848,6 +849,10 @@ autoButton.addEventListener('click', toggleAuto);
     playerTotal.textContent = game.playerTotal;
     betShown.textContent = format(game.bet);
     setCasinoPayoutMultiplier(game.casinoPayoutMultiplier);
+    nextCard.classList.toggle('hidden', !game.active || !game.nextCard);
+    nextCard.textContent = game.active && game.nextCard
+      ? `Developer preview · Next card: ${game.nextCard.rank}${game.nextCard.suit} (Hit/Double; or dealer's first draw on Stand)`
+      : '';
 
     betControls.classList.toggle('hidden', game.active);
     actions.classList.toggle('hidden', !game.active);

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../src/auth.js", () => ({
     loadSession: async () => ({ id: "player-1" }),
+    isDeveloper: () => false,
 }));
 vi.mock("../src/database.js", () => ({
     getPool: () => ({ query: mocks.query }),
