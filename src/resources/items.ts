@@ -134,6 +134,13 @@ export class Tool extends CraftableItem {
     }
 }
 
+export function describeToolBonus(tool: Tool): string {
+    const bonus = tool.bonus;
+    return bonus.type === "categoryWeightMultiplier"
+        ? `${bonus.multiplier}× chance weight for ${bonus.category} items`
+        : `${bonus.multiplier}× chance weight for ${bonus.minimumRarity} and higher items`;
+}
+
 export class Backpack extends Item {
     constructor(name: string, description: string, rarity: Rarity, readonly capacity: number) {
         super(name, description, 0, rarity, ItemCategory.Backpack, 0, false);

@@ -9,6 +9,7 @@ siteHeader.innerHTML = `
     <a id="homeTab" class="nav-link" href="/">Home</a>
     <a id="companionsTab" class="nav-link" href="/companions">Companions</a>
     <a id="itemsTab" class="nav-link" href="/items">Items</a>
+    <a id="storeTab" class="nav-link" href="/store">Store</a>
     <a id="wikiTab" class="nav-link" href="/wiki">Wiki</a>
     <div id="loggedInNav" class="logged-in-nav hidden">
       <a id="leaderboardTab" class="nav-link" href="/leaderboard">Leaderboard</a>
@@ -21,6 +22,11 @@ siteHeader.innerHTML = `
     </div>
     <button id="themeToggle" class="nav-link theme-toggle" type="button" aria-label="Switch to light theme">☀ Light</button>
   </nav>
+  <div id="shopRestockAlert" class="shop-restock-alert hidden" role="status" aria-live="polite">
+    <a id="shopAlertLink" href="/store#bot-shop">The Bot Shop has a new selection. View shop</a>
+    <button id="dismissShopAlert" class="btn secondary-btn" type="button">Mark read</button>
+    <span id="shopAlertStatus"></span>
+  </div>
 `;
 
 siteHeader.querySelector('#themeToggle').addEventListener('click', () => window.ledgerTheme.toggle());
@@ -32,6 +38,7 @@ const navLinks = {
   profile: siteHeader.querySelector('#profileTab'),
   companions: siteHeader.querySelector('#companionsTab'),
   items: siteHeader.querySelector('#itemsTab'),
+  store: siteHeader.querySelector('#storeTab'),
   casino: siteHeader.querySelector('#casinoTab'),
   wiki: siteHeader.querySelector('#wikiTab'),
   developer: siteHeader.querySelector('#developerTab')
@@ -59,6 +66,8 @@ if (location.pathname === '/') {
   setNavCurrent('companions');
 } else if (location.pathname.startsWith('/items') || location.pathname.startsWith('/item')) {
   setNavCurrent('items');
+} else if (location.pathname.startsWith('/store') || location.pathname.startsWith('/auction')) {
+  setNavCurrent('store');
 } else if (location.pathname.startsWith('/wiki')) {
   setNavCurrent('wiki');
 } else if (location.pathname.startsWith('/developer')) {
@@ -119,3 +128,44 @@ const authReady = fetch('/api/auth/me', { cache: 'no-store' })
     showLoginUnavailable();
     return { enabled: false, user: null };
   });
+
+let shopAlertGeneration = null;
+async function checkShopAlert() {
+  try {
+    const response = await fetch('/api/bot-shop/alert', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    const alert = await response.json();
+    shopAlertGeneration = alert.generation;
+    siteHeader.querySelector('#shopRestockAlert').classList.toggle('hidden', !alert.unread);
+    siteHeader.querySelector('#shopAlertLink').classList.remove('hidden');
+    siteHeader.querySelector('#dismissShopAlert').classList.remove('hidden');
+    siteHeader.querySelector('#shopAlertStatus').textContent = '';
+  } catch (error) {
+    console.error('Could not load Bot Shop restock alert:', error);
+    siteHeader.querySelector('#shopRestockAlert').classList.remove('hidden');
+    siteHeader.querySelector('#shopAlertLink').classList.add('hidden');
+    siteHeader.querySelector('#dismissShopAlert').classList.add('hidden');
+    siteHeader.querySelector('#shopAlertStatus').textContent = 'Could not load restock alerts.';
+  }
+}
+siteHeader.querySelector('#dismissShopAlert').addEventListener('click', async event => {
+  if (!shopAlertGeneration) return;
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/bot-shop/alert/read', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ generation: shopAlertGeneration })
+    });
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    await checkShopAlert();
+  } catch (error) {
+    siteHeader.querySelector('#shopAlertStatus').textContent = `Could not mark alert read. ${error.message}`;
+  } finally { button.disabled = false; }
+});
+void authReady.then(auth => {
+  if (auth.user) {
+    void checkShopAlert();
+    window.setInterval(checkShopAlert, 60000);
+  }
+});

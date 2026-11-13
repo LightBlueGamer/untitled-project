@@ -4,6 +4,8 @@ import "dotenv/config";
 import type { Data } from "./classes/Player.js";
 import { initializeCompanionStorage } from "./companionStorage.js";
 import { initializeItemStorage } from "./itemStorage.js";
+import { initializeAuctionStorage } from "./auctionStorage.js";
+import { initializeBotShop } from "./botShop.js";
 
 const databaseUrl = process.env.POSTGRES_URL;
 const redisUrl = process.env.REDIS_URL;
@@ -79,6 +81,8 @@ export async function initDatabase(): Promise<void> {
     }
     await initializeCompanionStorage();
     await initializeItemStorage();
+    await initializeAuctionStorage();
+    await initializeBotShop();
 }
 
 export const redisClient: RedisClientType = createClient({

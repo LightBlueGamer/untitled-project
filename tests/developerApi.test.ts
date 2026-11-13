@@ -2,11 +2,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vit
 import express from "express";
 import type { Server } from "node:http";
 
-const mocks = vi.hoisted(() => ({ get: vi.fn(), query: vi.fn(), lRange: vi.fn() }));
+const mocks = vi.hoisted(() => ({ get: vi.fn(), query: vi.fn(), lRange: vi.fn(), refreshShop: vi.fn() }));
 vi.mock("../src/database.js", () => ({
     getCache: () => ({ get: mocks.get, lRange: mocks.lRange }),
     getPool: () => ({ query: mocks.query }),
 }));
+vi.mock("../src/botShop.js", () => ({ refreshBotShop: mocks.refreshShop }));
 
 import { authApiRouter, requireDeveloper } from "../src/auth.js";
 import developerRouter from "../src/api/developer.js";
@@ -37,6 +38,7 @@ beforeEach(() => {
     mocks.get.mockReset().mockResolvedValue(null);
     mocks.query.mockReset().mockResolvedValue({ rowCount: 0 });
     mocks.lRange.mockReset().mockResolvedValue([]);
+    mocks.refreshShop.mockReset();
 });
 
 function login(id: string) {
@@ -44,6 +46,18 @@ function login(id: string) {
 }
 
 describe("developer dashboard authorization", () => {
+    test("only the developer can restock the shop with the required request header", async () => {
+        const headers = { cookie, "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" };
+        const refresh = (requestHeaders = headers) => fetch(`${url}/api/developer/bot-shop/refresh`, { method: "POST", headers: requestHeaders, body: "{}" });
+        expect((await refresh()).status).toBe(401);
+        login("other");
+        expect((await refresh()).status).toBe(403);
+        login("developer");
+        expect((await refresh({ ...headers, "X-Requested-With": "" })).status).toBe(400);
+        expect(mocks.refreshShop).not.toHaveBeenCalled();
+        expect((await refresh()).status).toBe(200);
+        expect(mocks.refreshShop).toHaveBeenCalledOnce();
+    });
     test("rejects anonymous and other accounts for both page and API", async () => {
         expect((await fetch(`${url}/developer`)).status).toBe(401);
         expect((await fetch(`${url}/api/developer`)).status).toBe(401);

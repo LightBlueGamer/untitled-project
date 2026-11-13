@@ -84,6 +84,7 @@ describe("profile collections", () => {
             if (url === "/api/players/me") return response({
                 id: "me", name: "Player", balance: 1234, skillPoints: 7, companionSlots: 2, toolSlots: 3,
                 experienceMultiplier: 1.5, balanceMultiplier: 2, prestigeExperienceFlat: 9, prestigeBalanceFlat: 10,
+                profileBonuses: { messageRewards: { experience: { multiplier: 1.75, additiveBonus: { min: 29, max: 30 } }, balance: { multiplier: 2.5, additiveBonus: { min: 80, max: 80 } } } },
                 prestigeCompanionSpawnMultiplier: 1.2, prestigeCompanionRarityMultiplier: 1.3,
                 scavengeWeightMultiplier: 1.4, scavengeRarityMultiplier: 1.6, scavengeExtraFindChance: 0.17,
             });
@@ -99,8 +100,8 @@ describe("profile collections", () => {
         const html = getNode("#statGrid").innerHTML;
         const expected = [
             ["Balance", "$1,234"], ["Skill points", "7"], ["Companion slots", "2"], ["Tool slots", "3"],
-            ["Experience multiplier", "1.5×"], ["Balance multiplier", "2×"],
-            ["Prestige bonus XP", "+9"], ["Prestige bonus money", "+$10"],
+            ["Experience multiplier", "1.75× base"], ["Money multiplier", "2.5× base"],
+            ["Bonus XP", "+29–+30"], ["Bonus money", "+$80"],
             ["Prestige appearance multiplier", "1.2×"], ["Prestige rarity multiplier", "1.3×"],
             ["Scavenge item bonus", "1.4×"], ["Rare-find bonus", "1.6×"], ["Extra item chance", "17%"],
         ];
@@ -115,11 +116,17 @@ describe("profile collections", () => {
         const bonuses = types.map(type => ({ type, multiplier: type === "extraFindChance" ? 0.1 : 1.5, expiresAt: new Date(now + 60000).toISOString() }));
         const fetch = vi.fn(async (url: string) => {
             if (url === "/api/players") return response([]);
-            if (url === "/api/players/me") return response({ id: "me", name: "Me" });
+            if (url === "/api/players/me") return response({ id: "me", name: "Me", profileBonuses: {
+                prestige: [{ name: "Prestige XP", description: "Adds 3 XP" }],
+                skills: [{ name: "Experience Gain I", description: "Adds 10 XP" }],
+                companions: [{ name: "Sparkit", description: "Adds 4 XP" }],
+                messageRewards: { experience: { multiplier: 1, additiveBonus: { min: 17, max: 17 } },
+                    balance: { multiplier: 1, additiveBonus: { min: 0, max: 0 } } },
+            } });
             if (url === "/api/companions/player/me") return response({ companions: [] });
             if (url === "/api/items/player/me") return response({
                 items: [], backpack: { name: "Pouch", used: 0, capacity: 10 },
-                lootboxes: { boxes: 0, boosts: 0 }, equippedTools: [], bonuses, toolSlots: 1,
+                lootboxes: { boxes: 0, boosts: 0 }, equippedTools: [{ name: "Iron Pick", description: "1.5× chance weight for Material items" }], bonuses, toolSlots: 1,
             });
             throw new Error(`Unexpected request: ${url}`);
         });
@@ -131,12 +138,14 @@ describe("profile collections", () => {
         for (const text of ["Rare-or-better", "10 percentage points", "capped at 75%", "drop chance",
             "higher-rarity weighting per tier for lootboxes", "higher-rarity weighting per tier for lootbox items and companions",
             "relative to boosts", "Expires"]) expect(html).toContain(text);
-        expect(html.match(/class="boost-card"/g)).toHaveLength(6);
+        for (const text of ["Prestige XP", "Experience Gain I", "Sparkit", "Iron Pick", "Material items"]) expect(html).toContain(text);
+        expect(html.match(/class="boost-card"/g)).toHaveLength(10);
         expect(getNode("#profileItemBonuses").textContent).toContain("Boosts tab");
         const expiryCallback = context.window.setTimeout.mock.calls.at(-1)[0];
         runInContext(`Date.now = () => ${now + 61000}`, context);
         expiryCallback();
         expect(getNode("#profileBoosts").innerHTML).toContain("No temporary boosts are active");
+        expect(getNode("#profileBoosts").innerHTML).toContain("Experience Gain I");
     });
 
     test("boost refresh reports errors and ignores responses for another profile", async () => {
@@ -197,8 +206,8 @@ describe("profile collections", () => {
         expect(getNode("#profileProgressText").textContent).toBe("395 / 974 XP");
         const overview = getNode("#statGrid").innerHTML;
         for (const label of [
-            "Resources", "Rewards", "Companion bonuses", "Scavenging bonuses", "Balance", "Skill points",
-            "Experience multiplier", "Balance multiplier", "Prestige bonus XP", "Prestige bonus money",
+            "Resources", "Message rewards", "Companion bonuses", "Scavenging bonuses", "Balance", "Skill points",
+            "Experience multiplier", "Money multiplier", "Bonus XP", "Bonus money",
             "Prestige appearance multiplier", "Prestige rarity multiplier", "Companion slots", "Tool slots",
             "Scavenge item bonus", "Rare-find bonus", "Extra item chance",
         ]) expect(overview).toContain(label);

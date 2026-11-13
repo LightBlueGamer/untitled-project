@@ -5,6 +5,38 @@ introduced in that release.
 
 ## 2026-11-13 — Developer diagnostics
 
+- Added `/store` with an Auction House and a placeholder Bot Shop. Players can
+  list items, companions, unopened lootboxes and unused boosts, bid with funds
+  held in escrow, and claim winnings (items require backpack space). Auctions
+  last 1–168 hours; ending early awards the current highest bidder. A listing
+  costs 1% of its starting price per 24 hours, minimum $10, charged on creation.
+  If a later fee cannot be paid, the auction ends and the seller is notified
+  on their profile. Three optional 24-hour promoted spots start at the greater
+  of $100 or 1% of starting price; a full slot requires a higher payment than
+  the cheapest spot, with unused time refunded when replaced or ended. Auction
+  settlement runs in the API service and catches up after downtime.
+- To run the auction PostgreSQL integration tests, provide
+  `AUCTION_TEST_DATABASE_URL` pointing to an empty, disposable PostgreSQL
+  database and run `npx vitest run tests/auctionIntegration.test.ts`. Never use
+  a production database for these tests.
+- The Bot Shop in `/store` shares stock globally and regenerates after 24 hours
+  with maintenance running about once per minute, or on the next shop request.
+  The developer can restock it early from the Store or developer dashboard.
+  Selection is weighted by rarity and item circulation; price is rounded from
+  2.5–100 times base price, with higher prices favored and scarcity shifting
+  prices upward. Backpacks are excluded. Sold-out listings remain visible
+  until restock and purchases require sufficient inventory space and balance.
+  To run its integration tests, point `BOT_SHOP_TEST_DATABASE_URL` at an
+  empty, disposable PostgreSQL database and run
+  `npx vitest run tests/botShopIntegration.test.ts`.
+- The Bot Shop supports name, rarity and type filters. Signed-in players see a
+  restock alert until they mark it read. Public purchase history is retained for
+  30 days; purchases made before purchase recording was added are unavailable.
+  At least one eligible item is selected per restock, with each additional item
+  less likely than the last; rarity and circulation weight the choices.
+- Player saves now detect concurrent balance changes and preserve newer
+  balances when the save does not modify money, preventing stale saves from
+  overwriting casino transactions or other balance updates.
 - Restored the purple-and-gold theme and added a persistent light/dark switch.
   The character overview groups stats into compact, illustrated sections. A
   profile Boosts tab shows active temporary consumable and lootbox effects,
@@ -18,6 +50,8 @@ introduced in that release.
 - Redesigned profiles with a single prestige, level, and XP progress display,
   plus tabs for overview, companions, items, skill tree, and personal settings.
   The skill tree remains editable on your own profile and read-only for others.
+  Discord's `/skills` command lists prerequisite-ready skills and asks for
+  confirmation before spending points, even when a skill is not yet affordable.
 - Profiles now show Discord avatars and usernames, level progress, and a
   player-chosen display name. Signed-in players can change their own name
   (1–32 characters); the name appears on the leaderboard, in game displays,

@@ -26,7 +26,7 @@ describe("player skill persistence", () => {
         }] });
         player.addBalance(10);
         await player.save();
-        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([false, false, "[]", "3", false, 0, "[]", false, false, 0]);
+        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([false, false, "[]", "3", false, 0, "[]", false, false, 0, true, 0]);
         expect(mocks.query.mock.calls[0][0]).toContain("jsonb_build_object('name', COALESCE(players.data->'name', EXCLUDED.data->'name'))");
         expect(player.skills).toEqual(["experience_gain_1"]);
         expect(player.skillPoints).toBe(2);
@@ -39,7 +39,7 @@ describe("player skill persistence", () => {
         player.skills = ["experience_gain_1"];
         mocks.query.mockResolvedValue({ rows: [] });
         await expect(player.save()).rejects.toBeInstanceOf(PlayerConflictError);
-        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([true, true, "[]", "3", false, 0, "[]", false, false, 0]);
+        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([true, true, "[]", "3", false, 0, "[]", false, false, 0, false, 0]);
         expect(mocks.release).toHaveBeenCalled();
     });
 
@@ -117,7 +117,7 @@ describe("player skill persistence", () => {
         const legacyPlayer = new Player("Legacy", "2", { level: 10, experience: 20 });
         mocks.query.mockResolvedValue({ rows: [{ data: { ...legacyPlayer.toJSON(), name: "Legacy" } }] });
         await legacyPlayer.save();
-        expect(mocks.query.mock.calls[0][1].slice(10)).toEqual([true, 20]);
+        expect(mocks.query.mock.calls[0][1].slice(10)).toEqual([true, 20, false, 0]);
     });
 
     test("rejects stale lifetime XP writes so concurrent rewards can retry", async () => {
@@ -129,7 +129,7 @@ describe("player skill persistence", () => {
 
         const [sql, parameters] = mocks.query.mock.calls[0];
         expect(sql).toContain("players.data->>'totalExperience'");
-        expect(parameters.slice(10)).toEqual([true, 0]);
+        expect(parameters.slice(10)).toEqual([true, 0, false, 0]);
     });
 
     test("applies skill bonuses per level, additive before multiplier", () => {
@@ -205,7 +205,7 @@ describe("player skill persistence", () => {
         player.prestige();
         mocks.query.mockResolvedValue({ rows: [] });
         await expect(player.save()).rejects.toBeInstanceOf(PlayerConflictError);
-        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([true, true, "[]", "0", true, 0, "[]", true, true, 0]);
+        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([true, true, "[]", "0", true, 0, "[]", true, true, 0, false, 0]);
     });
 
     test("chat rewards guard against stale skill and prestige snapshots", async () => {
@@ -213,6 +213,20 @@ describe("player skill persistence", () => {
         player.assignRandomExperienceAndBalance();
         mocks.query.mockResolvedValue({ rows: [] });
         await expect(player.save()).rejects.toBeInstanceOf(PlayerConflictError);
-        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([false, false, "[]", "0", true, 2, "[]", false, true, 0]);
+        expect(mocks.query.mock.calls[0][1].slice(2)).toEqual([false, false, "[]", "0", true, 2, "[]", false, true, 0, true, 0]);
+    });
+
+    test("guards changed balances and preserves concurrent changes when balance is untouched", async () => {
+        const player = new Player("Test", "1", { balance: 100 });
+        player.addBalance(10);
+        mocks.query.mockResolvedValueOnce({ rows: [] });
+        await expect(player.save()).rejects.toBeInstanceOf(PlayerConflictError);
+        expect(mocks.query.mock.calls[0][1].slice(-2)).toEqual([true, 100]);
+        expect(mocks.del).toHaveBeenCalledWith("player:1");
+        const untouched = new Player("Test", "1", { balance: 100 });
+        mocks.query.mockResolvedValueOnce({ rows: [{ data: { ...untouched.toJSON(), balance: 75 } }] });
+        await untouched.save();
+        expect(mocks.query.mock.calls[1][1].slice(-2)).toEqual([false, 100]);
+        expect(untouched.balance).toBe(75);
     });
 });

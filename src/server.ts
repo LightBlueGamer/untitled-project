@@ -5,6 +5,8 @@ import { restoreLobbies } from './api/lobbies.js'
 import { authApiRouter, authRouter, discordOAuthCallback, requireDeveloper, requireLogin } from './auth.js'
 import developerRouter from './api/developer.js'
 import { initDatabase, initRedis } from './database.js'
+import { tickAuctions } from './auctionStorage.js'
+import { tickBotShop } from './botShop.js'
 
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -109,6 +111,10 @@ app.get('/leaderboard', (_request, response) => {
     response.sendFile(join(projectRoot, 'public', 'leaderboard.html'))
 })
 
+app.get('/store.html', (request, response) => response.redirect(301, `/store${request.url.slice(request.path.length)}`))
+app.get('/store', (_request, response) => response.sendFile(join(projectRoot, 'public', 'store.html')))
+app.get('/auction', (_request, response) => response.sendFile(join(projectRoot, 'public', 'auction.html')))
+
 app.get('/', (request, response) => {
     if (['id', 'view', 'authError'].some(key => key in request.query)) {
         response.redirect(302, `/leaderboard${request.url.slice(request.path.length)}`)
@@ -125,6 +131,14 @@ async function startServer(): Promise<void> {
     await initDatabase()
     await initRedis()
     await restoreLobbies()
+    await tickAuctions()
+    await tickBotShop()
+    setInterval(() => {
+        void tickAuctions().catch(error => console.error('Auction maintenance failed:', error))
+    }, 60_000).unref()
+    setInterval(() => {
+        void tickBotShop().catch(error => console.error('Bot Shop maintenance failed:', error))
+    }, 60_000).unref()
 
     app.listen(port, () => {
         console.log(`Server listening on http://localhost:${port}`)

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Store | Prestigious Ledger</title>
+    <script src="/scripts/theme.js"></script><link rel="stylesheet" href="/styles/main.css">
+  </head>
+  <body><div class="wrap"><header id="siteHeader"></header><main>
+    <div class="hero"><div><div class="eyebrow">The marketplace</div><h1>Store</h1><p>Discover treasures and trade with other adventurers.</p></div></div>
+    <div class="profile-tabs" role="tablist" aria-label="Store sections">
+      <button id="auctionTab" role="tab" aria-selected="true" aria-controls="auctionPanel" type="button">Auction House</button>
+      <button id="botShopTab" role="tab" aria-selected="false" aria-controls="botShopPanel" tabindex="-1" type="button">Bot Shop</button>
+    </div>
+    <section id="auctionPanel" role="tabpanel" aria-labelledby="auctionTab">
+      <div class="panel market-section">
+        <div class="hero"><div><div class="eyebrow">Player listings</div><h2>Auction House</h2><p>Bid on items, companions, lootboxes and unused boosts.</p></div><button id="refreshMarket" class="btn secondary-btn" type="button">Refresh</button></div>
+        <p>Listing fee: 1% of the starting price per 24 hours (minimum $10), charged immediately. Bids are held until outbid or settled. Ending early awards the highest bid.</p>
+        <p id="marketStatus" class="status" role="status" aria-live="polite">Loading auctions…</p>
+        <div id="marketListings" class="market-grid"></div>
+        <div class="market-pagination"><button id="marketPrevious" class="btn secondary-btn" type="button" disabled>Previous</button><span id="marketPage">Page 1</span><button id="marketNext" class="btn secondary-btn" type="button" disabled>Next</button></div>
+      </div>
+      <section id="marketAccount" class="panel market-section hidden">
+        <h2>Your claims and notifications</h2>
+        <div id="marketClaims"></div><div id="marketNotifications"></div>
+        <button id="markNotifications" class="btn secondary-btn" type="button">Mark notifications read</button>
+      </section>
+      <section id="marketCreate" class="panel market-section hidden">
+        <h2>Create a listing</h2>
+        <form id="listingForm" class="market-form">
+          <label>Asset <select id="listingAsset" class="search" required></select></label>
+          <label>Quantity <input id="listingQuantity" class="search" type="number" min="1" max="1000000" value="1" required></label>
+          <label>Listing title <input id="listingTitle" class="search" maxlength="80" required></label>
+          <label>Description <textarea id="listingDescription" class="search" maxlength="500" rows="3"></textarea></label>
+          <label>Starting bid ($) <input id="listingPrice" class="search" type="number" min="1" max="1000000000" step="1" required></label>
+          <label>Duration (hours, 1–168) <input id="listingHours" class="search" type="number" min="1" max="168" value="24" step="1" required></label>
+          <button class="btn" type="submit">List asset</button>
+        </form>
+        <p class="status">Assets are reserved while listed. Equipped tools and companions are unequipped if their last copy is listed. Backpacks and lootboxes with saved rewards cannot be listed.</p>
+      </section>
+      <p id="marketLogin" class="status">Sign in to list, bid, promote and claim assets.</p>
+    </section>
+    <section id="botShopPanel" class="panel market-section hidden" role="tabpanel" aria-labelledby="botShopTab">
+      <div class="hero"><div><div class="eyebrow">The travelling merchant</div><h2>Bot Shop</h2>
+        <p>Shared stock, refreshed every 24 hours. Prices and selection depend on rarity and circulation.</p></div>
+        <button id="refreshBotShop" class="btn secondary-btn hidden" type="button">Restock shop</button></div>
+      <p id="botShopRestock" class="status"></p>
+      <p id="botShopRestockStatus" class="status" role="status" aria-live="polite"></p>
+      <p id="botShopStatus" class="status" role="status" aria-live="polite">Loading shop…</p>
+      <div class="market-form shop-filters" aria-label="Filter Bot Shop items">
+        <label>Search items <input id="shopSearch" class="search" type="search" placeholder="Search by name"></label>
+        <label>Rarity <select id="shopRarity" class="search"><option value="">All rarities</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Epic</option><option>Legendary</option><option>Mythic</option><option>Eternal</option></select></label>
+        <label>Item type <select id="shopType" class="search"><option value="">All types</option><option>Material</option><option>Component</option><option>Consumable</option><option>Treasure</option><option>Tool</option></select></label>
+      </div>
+      <div id="botShopListings" class="market-grid"></div>
+      <section class="shop-history" aria-labelledby="shopHistoryTitle">
+        <div class="shop-history-header"><div><div class="eyebrow">The merchant's ledger</div>
+          <h3 id="shopHistoryTitle">Recent purchases</h3><p>Community purchases from the last 30 days.</p></div>
+          <span class="shop-history-emblem" aria-hidden="true">✦</span></div>
+        <p id="shopHistoryStatus" class="status" role="status"></p>
+        <ol id="shopHistoryPurchases" class="shop-history-list"></ol>
+        <div class="market-pagination"><button id="shopHistoryPrevious" class="btn secondary-btn" type="button" disabled>Previous</button><span id="shopHistoryPage">Page 1</span><button id="shopHistoryNext" class="btn secondary-btn" type="button" disabled>Next</button></div>
+      </section>
+    </section>
+  </main></div><script src="/scripts/nav.js"></script><script src="/scripts/store.js"></script></body>
+</html>

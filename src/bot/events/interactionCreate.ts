@@ -9,8 +9,8 @@ export default {
         if (user.bot) return;
 
         const companionInteraction =
-            ((interaction.isChatInputCommand() || interaction.isAutocomplete()) && ["companion", "debug"].includes(interaction.commandName)) ||
-            (interaction.isButton() && (interaction.customId.startsWith("companion_list:") || interaction.customId.startsWith("companion_catch:")));
+            ((interaction.isChatInputCommand() || interaction.isAutocomplete()) && ["companion", "debug", "skills"].includes(interaction.commandName)) ||
+            (interaction.isButton() && (interaction.customId.startsWith("companion_list:") || interaction.customId.startsWith("companion_catch:") || interaction.customId.startsWith("skills:")));
         if (!companionInteraction) await Player.get(user.id, client);
 
         if (interaction.isChatInputCommand()) {

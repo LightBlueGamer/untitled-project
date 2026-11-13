@@ -1,7 +1,8 @@
 import { getPool } from "./database.js";
 import Player, { type ExperienceResult } from "./classes/Player.js";
-import { BackpackUpgrade, backpacks, CraftableItem, getScavengeWeight, items, Tool, tools, type Item } from "./resources/items.js";
+import { BackpackUpgrade, backpacks, CraftableItem, describeToolBonus, getScavengeWeight, items, Tool, tools, type Item } from "./resources/items.js";
 import { Rarity } from "./resources/rarities.js";
+import type { PoolClient } from "pg";
 
 export const scavengeCooldownMs = 5 * 60 * 1000;
 
@@ -86,10 +87,16 @@ export async function getPlayerItems(playerId: string): Promise<OwnedItem[]> {
     return result.rows.map(({ item_key, quantity }) => ({ key: item_key, quantity }));
 }
 
-export async function getItemCirculation(): Promise<Map<string, string>> {
-    const result = await getPool().query<{ item_key: string; quantity: string }>(
+export async function getItemCirculation(client: Pick<PoolClient, "query"> = getPool()): Promise<Map<string, string>> {
+    const result = await client.query<{ item_key: string; quantity: string }>(
         `SELECT item_key, SUM(quantity)::text AS quantity FROM (
             SELECT item_key, quantity::bigint AS quantity FROM player_items
+            UNION ALL
+            SELECT asset->>'key' AS item_key, (asset->>'quantity')::bigint AS quantity
+            FROM auctions WHERE status = 'active' AND asset->>'kind' = 'item'
+            UNION ALL
+            SELECT asset->>'key' AS item_key, (asset->>'quantity')::bigint AS quantity
+            FROM auction_claims WHERE claimed_at IS NULL AND asset->>'kind' = 'item'
             UNION ALL
             SELECT COALESCE(s.backpack_key, 'small_pouch') AS item_key, 1::bigint AS quantity
             FROM players p LEFT JOIN player_scavenge_state s ON s.player_id = p.id
@@ -602,7 +609,8 @@ export async function getPlayerItemProfile(playerId: string, toolSlots = 1) {
             price: Object.hasOwn(items, key) ? items[key].price : null,
             quantity,
         })),
-        equippedTools: state.equippedTools.map(key => ({ key, name: tools[key]?.name ?? key })),
+        equippedTools: state.equippedTools.map(key => ({ key, name: tools[key]?.name ?? key,
+            description: tools[key] ? describeToolBonus(tools[key]) : `Details unavailable for tool ${key}.` })),
         bonuses,
     };
 }

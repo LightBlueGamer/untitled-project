@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auction | Prestigious Ledger</title><script src="/scripts/theme.js"></script><link rel="stylesheet" href="/styles/main.css"></head>
+<body><div class="wrap"><header id="siteHeader"></header><main>
+  <div class="hero"><div><div class="eyebrow">Auction House</div><h1>Auction listing</h1></div><a class="btn secondary-btn" href="/store">← Back to store</a></div>
+  <p id="auctionStatus" class="status" role="status" aria-live="polite">Loading auction…</p>
+  <section id="auctionDetails" class="panel market-section"></section>
+  <section class="panel market-section"><h2>Bid history</h2><div id="auctionBids"></div></section>
+  <section id="auctionActions" class="panel market-section hidden">
+    <p id="bidMinimum" class="status"></p><form id="bidForm" class="market-form"><label>Your bid ($) <input id="bidAmount" class="search" type="number" min="1" max="1000000000" required></label><button class="btn" type="submit">Place bid</button></form>
+    <div id="sellerActions" class="hidden"><form id="promoteForm" class="market-form">
+      <label>Promotion payment ($) <input id="promoteAmount" class="search" type="number" min="1" max="1000000000" required></label>
+      <button class="btn" type="submit">Promote for up to 24 hours</button>
+    </form><p>Minimum $100 or 1% of starting price, whichever is higher. If all three slots are occupied, pay more than the lowest promotion. Unused time is refunded when replaced or ended.</p>
+    <button id="endAuction" class="btn secondary-btn" type="button">End auction early</button></div>
+  </section>
+</main></div><script src="/scripts/nav.js"></script><script src="/scripts/auction.js"></script></body></html>

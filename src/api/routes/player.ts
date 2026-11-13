@@ -28,7 +28,7 @@ router.get('/:id', async (request, response) => {
 
         const discord = await getDiscordProfile(player.id)
         response.setHeader('Cache-Control', 'no-store')
-        response.json({ ...player.toJSON(), requiredXP: player.xpForNextLevel(player.level), discord })
+        response.json({ ...player.toJSON(), requiredXP: player.xpForNextLevel(player.level), profileBonuses: player.profileBonuses, discord })
     } catch (error) {
         console.error('Failed to fetch player data:', error)
         response.status(500).json({ error: 'Failed to fetch player data' })

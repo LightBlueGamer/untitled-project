@@ -318,6 +318,7 @@ async function loadProfile(id, fresh = false) {
   $('#profileSaleStatus').textContent = '';
   $('#profileNameForm').classList.add('hidden');
   $('#profileNameStatus').textContent = '';
+  $('#profileAuctionNotice').classList.add('hidden');
   try {
     const url = `${API_BASE}/${encodeURIComponent(id)}`;
     const r = fresh ? await fetch(url, { cache: 'no-store' }) : await fetch(url);
@@ -357,11 +358,11 @@ async function loadProfile(id, fresh = false) {
         ['Companion slots', p.companionSlots ?? 1, '♧'],
         ['Tool slots', p.toolSlots ?? 1, '⚒']
       ]),
-      statGroup('Rewards', '✦', [
-        ['Experience multiplier', `${p.experienceMultiplier ?? 1}×`, '✦'],
-        ['Balance multiplier', `${p.balanceMultiplier ?? 1}×`, '◈'],
-        ['Prestige bonus XP', `+${p.prestigeExperienceFlat ?? 0}`, '✧'],
-        ['Prestige bonus money', `+$${p.prestigeBalanceFlat ?? 0}`, '♛']
+      statGroup('Message rewards', '✦', [
+        ['Experience multiplier', p.profileBonuses ? `${formatProfileMultiplier(p.profileBonuses.messageRewards.experience.multiplier)}× base` : 'Unavailable', '✦'],
+        ['Money multiplier', p.profileBonuses ? `${formatProfileMultiplier(p.profileBonuses.messageRewards.balance.multiplier)}× base` : 'Unavailable', '◈'],
+        ['Bonus XP', p.profileBonuses ? formatProfileRange(p.profileBonuses.messageRewards.experience.additiveBonus, '+') : 'Unavailable', '✧'],
+        ['Bonus money', p.profileBonuses ? formatProfileRange(p.profileBonuses.messageRewards.balance.additiveBonus, '+$') : 'Unavailable', '♛']
       ]),
       statGroup('Companion bonuses', '✧', [
         ['Prestige appearance multiplier', `${Number(p.prestigeCompanionSpawnMultiplier ?? 1).toLocaleString()}×`, '♧'],
@@ -378,6 +379,7 @@ async function loadProfile(id, fresh = false) {
       $('#profileTab-settings').classList.remove('hidden');
       $('#profileNameInput').value = p.name || '';
       $('#profileNameForm').classList.remove('hidden');
+      void loadProfileAuctionNotifications(id);
     }
     $('#openSkillTree').href = ownProfile ? '/skills' : `/skills?player=${encodeURIComponent(p.id)}`;
     $('#openSkillTree').textContent = ownProfile ? 'Open skill tree' : 'View skill tree';
@@ -390,6 +392,25 @@ async function loadProfile(id, fresh = false) {
       $('#profileCompanions').textContent = 'Could not load companions because the profile could not be loaded.';
       $('#profileItems').textContent = 'Could not load inventory because the profile could not be loaded.';
       $('#profileBoosts').textContent = 'Could not load boosts because the profile could not be loaded.';
+    }
+  }
+}
+
+async function loadProfileAuctionNotifications(id) {
+  try {
+    const response = await fetch('/api/auctions/account', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    const data = await response.json();
+    if (profileId !== id) return;
+    const unread = data.notifications.filter(note => !note.read_at);
+    if (!unread.length && !data.claims.length) return;
+    $('#profileAuctionMessages').innerHTML = `${data.claims.length ? `<p>${data.claims.length} asset${data.claims.length === 1 ? '' : 's'} awaiting claim.</p>` : ''}
+      ${unread.map(note => `<p>${esc(note.message)}</p>`).join('')}`;
+    $('#profileAuctionNotice').classList.remove('hidden');
+  } catch (error) {
+    if (profileId === id) {
+      $('#profileAuctionMessages').textContent = `Could not load auction notifications. ${error.message}`;
+      $('#profileAuctionNotice').classList.remove('hidden');
     }
   }
 }
@@ -470,13 +491,22 @@ function describeProfileBoost(bonus) {
   }
 }
 
-function renderProfileBoosts(bonuses) {
+function formatProfileMultiplier(value) {
+  return Number(value).toLocaleString(undefined, { maximumFractionDigits: 6 });
+}
+
+function formatProfileRange(range, prefix = '') {
+  const display = value => `${prefix}${Number(value).toLocaleString()}`;
+  return range.min === range.max ? display(range.min) : `${display(range.min)}–${display(range.max)}`;
+}
+
+function renderProfileBoosts(bonuses, permanent = { prestige: [], skills: [], companions: [], tools: [] }) {
   const now = Date.now();
   const active = bonuses.filter(bonus => {
     const expires = Date.parse(bonus.expiresAt);
     return !Number.isFinite(expires) || expires > now;
   });
-  $('#profileBoosts').innerHTML = active.length
+  const temporary = active.length
     ? `<ul class="boost-list">${active.map(bonus => {
       const [name, icon, description] = describeProfileBoost(bonus);
       const expiry = new Date(bonus.expiresAt);
@@ -485,11 +515,19 @@ function renderProfileBoosts(bonuses) {
         <div><h4>${esc(name)}</h4><p>${esc(description)}</p><span class="boost-expiry">${esc(expiresAt === 'Expiry unavailable' ? expiresAt : `Expires ${expiresAt}`)}</span></div></li>`;
     }).join('')}</ul>`
     : '<p class="boost-empty">No temporary boosts are active. Use a consumable or activate a lootbox boost to get started.</p>';
+  const section = (title, entries, icon, empty) => `<section class="boost-section"><h4>${esc(title)}</h4>${
+    entries.length ? `<ul class="boost-list">${entries.map(entry => `<li class="boost-card"><span class="boost-icon" aria-hidden="true">${icon}</span>
+      <div><h4>${esc(entry.name)}</h4><p>${esc(entry.description)}</p></div></li>`).join('')}</ul>` : `<p class="boost-empty">${esc(empty)}</p>`}</section>`;
+  $('#profileBoosts').innerHTML = `<section class="boost-section"><h4>Temporary boosts</h4>${temporary}</section>
+    ${section('Prestige bonuses', permanent.prestige, '♛', 'No prestige bonuses yet.')}
+    ${section('Unlocked skills', permanent.skills, '✦', 'No skills unlocked.')}
+    ${section('Equipped companions', permanent.companions, '♧', 'No companions equipped.')}
+    ${section('Equipped tools', permanent.tools, '⚒', 'No tools equipped.')}`;
   window.clearTimeout(boostExpiryTimer);
   const expiries = active.map(bonus => Date.parse(bonus.expiresAt)).filter(Number.isFinite);
   if (expiries.length) {
     const delay = Math.min(2147483647, Math.max(1, Math.min(...expiries) - now + 1));
-    boostExpiryTimer = window.setTimeout(() => renderProfileBoosts(bonuses), delay);
+    boostExpiryTimer = window.setTimeout(() => renderProfileBoosts(bonuses, permanent), delay);
   }
 }
 
@@ -498,11 +536,19 @@ async function loadProfileBoosts(id) {
   window.clearTimeout(boostExpiryTimer);
   $('#profileBoosts').textContent = 'Loading active boosts…';
   try {
-    const response = await fetch(`/api/items/player/${encodeURIComponent(id)}`, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`Request failed (${response.status})`);
-    const data = await response.json();
-    if (!Array.isArray(data.bonuses)) throw new Error('Boost data is unavailable.');
-    if (profileId === id && request === boostRequest) renderProfileBoosts(data.bonuses);
+    const [itemResponse, playerResponse] = await Promise.all([
+      fetch(`/api/items/player/${encodeURIComponent(id)}`, { cache: 'no-store' }),
+      fetch(`/api/players/${encodeURIComponent(id)}`, { cache: 'no-store' })
+    ]);
+    if (!itemResponse.ok) throw new Error(`Request failed (${itemResponse.status})`);
+    if (!playerResponse.ok) throw new Error(`Request failed (${playerResponse.status})`);
+    const [data, player] = await Promise.all([itemResponse.json(), playerResponse.json()]);
+    const permanent = player.profileBonuses;
+    if (!Array.isArray(data.bonuses) || !Array.isArray(data.equippedTools) ||
+        !permanent || !Array.isArray(permanent.prestige) || !Array.isArray(permanent.skills) || !Array.isArray(permanent.companions)) {
+      throw new Error('Boost data is unavailable.');
+    }
+    if (profileId === id && request === boostRequest) renderProfileBoosts(data.bonuses, { ...permanent, tools: data.equippedTools });
   } catch (error) {
     if (profileId === id && request === boostRequest) $('#profileBoosts').textContent = `Could not load active boosts. ${error.message}`;
   }

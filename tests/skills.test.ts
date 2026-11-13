@@ -135,7 +135,7 @@ describe("skill tree API", () => {
         });
         expect((await buy("experience_gain_1")).status).toBe(409);
         expect(mocks.invalidate).toHaveBeenCalledTimes(2);
-        expect(mocks.query.mock.calls[0][1]).toEqual(["player-1", "experience_gain_1", 1, []]);
+        expect(mocks.query.mock.calls[0][1]).toEqual(["player-1", "experience_gain_1", 1, [], null]);
     });
 
     test("only one simultaneous purchase of the same skill succeeds", async () => {
@@ -198,7 +198,7 @@ describe("skill tree API", () => {
                 skillPoints: 1,
             });
             expect(mocks.query.mock.calls.at(-1)?.[1]).toEqual([
-                "player-1", "scholars_fortune", 3, ["experience_gain_2", "extra_income_2"],
+                "player-1", "scholars_fortune", 3, ["experience_gain_2", "extra_income_2"], null,
             ]);
     });
 

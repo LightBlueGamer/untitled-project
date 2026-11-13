@@ -308,8 +308,15 @@ export async function getPlayerCompanions(playerId: string): Promise<OwnedCompan
 
 export async function getCompanionCirculation(): Promise<{ key: string; quantity: string }[]> {
     const result = await getPool().query<{ key: string; quantity: string }>(
-        `SELECT companion_key AS key, sum(quantity_change)::text AS quantity
-         FROM companion_events GROUP BY companion_key ORDER BY companion_key`,
+        `SELECT key, sum(quantity)::text AS quantity FROM (
+            SELECT companion_key AS key, quantity_change::bigint AS quantity FROM companion_events
+            UNION ALL
+            SELECT asset->>'key', (asset->>'quantity')::bigint FROM auctions
+                WHERE status = 'active' AND asset->>'kind' = 'companion'
+            UNION ALL
+            SELECT asset->>'key', (asset->>'quantity')::bigint FROM auction_claims
+                WHERE claimed_at IS NULL AND asset->>'kind' = 'companion'
+         ) circulation GROUP BY key ORDER BY key`,
     );
     return result.rows;
 }

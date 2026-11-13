@@ -2,19 +2,11 @@ import { json, Router } from "express";
 import { loadSession } from "../../auth.js";
 import Player from "../../classes/Player.js";
 import { calculateScavengeWeights, getItemCirculation, getPlayerItemProfile, scavengeOdds, sellPlayerItem } from "../../itemStorage.js";
-import { Backpack, BackpackUpgrade, CraftableItem, items, ItemCategory, Tool, type Item } from "../../resources/items.js";
+import { Backpack, BackpackUpgrade, CraftableItem, describeToolBonus, items, ItemCategory, Tool, type Item } from "../../resources/items.js";
 import { getLootboxInventory } from "../../lootboxStorage.js";
 
 const router = Router();
 const itemKeys = new Map(Object.entries(items).map(([key, item]) => [item, key]));
-
-function describeToolBonus(tool: Tool): string {
-    const bonus = tool.bonus;
-    if (bonus.type === "categoryWeightMultiplier") {
-        return `${bonus.multiplier}× chance weight for ${bonus.category} items`;
-    }
-    return `${bonus.multiplier}× chance weight for ${bonus.minimumRarity} and higher items`;
-}
 
 function describeConsumableBonus(item: Item): string | null {
     const bonus = item.consumableBonus;

@@ -28,8 +28,8 @@
           <section>
             <h2>Skills and progression</h2>
             <p>Sign in and visit your profile to choose your display name. It appears on the leaderboard and in game announcements, while your Discord username remains visible beneath it.</p>
-            <p>The profile's Boosts tab lists active temporary consumable and lootbox effects, what they do, and when they expire. Open or refresh it after activating a boost; permanent and equipment bonuses are separate.</p>
-            <p>The <a href="/skills">skill tree</a> contains upgrades for experience, money, skill points, and companion encounters. Skills can have prerequisites, so follow the highlighted paths to see what you can unlock next.</p>
+            <p>The profile's Boosts tab lists active temporary effects alongside unlocked skills, prestige bonuses, equipped companions, and tools. Open or refresh it after changing an effect or equipment. The overview shows ordinary message reward multipliers and the rounded bonus above the multiplied base, including skill, companion, and prestige effects. The rounded bonus can vary with the base roll. Conditional message-skill rewards can add more and are listed separately in Boosts.</p>
+            <p>The <a href="/skills">skill tree</a> contains upgrades for experience, money, skill points, and companion encounters. Skills can have prerequisites, so follow the highlighted paths to see what you can unlock next. In Discord, use <code>/skills</code> to browse skills whose prerequisites are met, including those you cannot yet afford. Select a skill and confirm to spend its points.</p>
             <p>The skill balance chart beneath the tree shows the fraction of skills unlocked in each category, not the strength of their effects. Drag the tree, use its zoom controls, or focus it and use the arrow keys to explore.</p>
             <p>XP required to advance uses the base level curve multiplied by 1 for levels 1–10, 2 for levels 11–20, 3 for levels 21–30, and so on. Existing levels, skill points, and accumulated XP are retained when the curve changes.</p>
             <p>When you reach the level requirement, use <code>/prestige</code> in Discord to reset your level, experience, unlocked skills, and unspent skill points in exchange for a prestige level and a choice of buff. Your prestige level increases future requirements.</p>
@@ -59,9 +59,23 @@
             <p>The <a href="/casino">casino</a> has Plinko, Blackjack, Pass the Bills, poker, multiplayer lobbies, and casino statistics. Wagers use your player balance; check each game's rules before placing a bet. Equipped casino companions, casino skills, and permanent prestige buffs increase winning payouts in Plinko, Blackjack, Pass the Bills, and solo poker against the house. The casino page shows your active boost and adjusted Plinko winning multipliers. These bonuses do not affect losses, ties, win odds, or games against other players.</p>
           </section>
           <section>
+            <h2>Auction House</h2>
+            <p>Visit the <a href="/store">store</a> to list items, companions, unopened lootboxes and unused boosts. Backpacks and lootboxes with saved rewards cannot be listed. The daily listing fee is 1% of the starting bid (minimum $10), charged when listed and every 24 hours thereafter. If it cannot be paid, the auction ends and the seller is notified on their profile.</p>
+            <p>Auctions last between one hour and seven days. Bids are held until outbid or settled; each new bid must exceed the previous one by at least 5% or $1. Ending early awards the current highest bidder. Winners and sellers claim assets from the store; items need enough backpack space.</p>
+            <p>There are three promoted slots. A 24-hour promotion costs at least $100 or 1% of starting price, whichever is greater. If all slots are occupied, pay more than the lowest payment to replace it. Unused promotion time is refunded when replaced or when the auction ends.</p>
+          </section>
+          <section>
+            <h2>Bot Shop</h2>
+            <p>The <a href="/store">Bot Shop</a> offers a shared, random selection of items for 24 hours. Rarer items and items already common in circulation are less likely to appear. The developer may restock early from the Store or developer dashboard. Backpacks are not sold.</p>
+            <p>Common, Uncommon, Rare, Epic and Legendary items begin with 10, 7, 5, 2 and 1 stock respectively. Mythic and Eternal begin at −1 and −3: randomly generated extra stock must bring their total above zero before they can appear. Higher quantities are increasingly unlikely, especially for rarer items.</p>
+            <p>Each item's price is rounded to the nearest dollar from a random 2.5×–100× its base price, weighted toward the higher end. Lower circulation also shifts the price upward. Stock is shared: sold-out listings remain visible until the next restock, and purchases require sufficient balance and backpack space.</p>
+            <p>Each restock guarantees one item; each additional item becomes less likely. Search and filter the shop by rarity or item type. Signed-in players receive a website alert for new selections, which can be marked read. The public purchase history shows buyers, items, quantities and prices for 30 days, starting when purchase recording was added.</p>
+          </section>
+          <section>
             <h2>Commands</h2>
             <ul>
               <li><code>/help</code> — show a quick guide and link to this page.</li>
+              <li><code>/skills</code> — browse available skills and confirm unlocks.</li>
               <li><code>/prestige</code> — prestige when you meet the level requirement.</li>
               <li><code>/companion list</code>, <code>/companion equip</code>, and <code>/companion unequip</code> — manage your companions.</li>
               <li><code>/scavenge</code> — search for an item and earn XP (five-minute base cooldown).</li>

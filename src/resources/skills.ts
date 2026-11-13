@@ -551,3 +551,21 @@ export const skills = {
 export function getSkill(key: string): Skill | undefined {
     return Object.hasOwn(skills, key) ? skills[key as keyof typeof skills] : undefined;
 }
+
+const skillKeys = new Map(Object.entries(skills).map(([key, skill]) => [skill, key]));
+
+export function skillPrerequisiteKeys(key: string): string[] {
+    const skill = getSkill(key);
+    if (!skill) throw new Error(`Unknown skill ${key}`);
+    return skill.prerequisites.map(prerequisite => {
+        const prerequisiteKey = skillKeys.get(prerequisite);
+        if (prerequisiteKey === undefined) throw new Error(`Unknown prerequisite for skill ${key}`);
+        return prerequisiteKey;
+    });
+}
+
+export function availableSkills(unlocked: readonly string[]) {
+    const owned = new Set(unlocked);
+    return Object.entries(skills).filter(([key]) =>
+        !owned.has(key) && skillPrerequisiteKeys(key).every(prerequisite => owned.has(prerequisite)));
+}

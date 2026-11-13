@@ -75,5 +75,21 @@ async function updateDebugSetting(topic, enabled) {
 }
 
 document.querySelector('#refreshDebug').addEventListener('click', refreshDiagnostics);
+document.querySelector('#refreshBotShop').addEventListener('click', async event => {
+  if (!window.confirm('Replace all current Bot Shop stock and prices?')) return;
+  const button = event.currentTarget;
+  const status = document.querySelector('#botShopDeveloperStatus');
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/developer/bot-shop/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: '{}'
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+    status.textContent = 'Bot Shop restocked.';
+  } catch (error) {
+    status.textContent = `Could not restock Bot Shop. ${error.message}`;
+  } finally { button.disabled = false; }
+});
 refreshDiagnostics();
 window.setInterval(refreshDiagnostics, 5000);

@@ -16,6 +16,9 @@ const companionInventoryQuery = `COALESCE(
                       ORDER BY pc.companion_key)
      FROM player_companions pc WHERE pc.player_id = p.id), '[]'::jsonb)`;
 
+const messageExperienceRange = { min: 15, max: 40 };
+const messageBalanceRange = { min: 50, max: 150 };
+
 function progressionExperience(data: Partial<Data>): number {
     // Historical reconstruction uses the original curve; changing it would invent past XP.
     let total = Math.max(0, data.experience ?? 0);
@@ -43,6 +46,7 @@ export default class Player {
     protected data: Data;
     private savedSkills: string[];
     private savedSkillPoints: number;
+    private savedBalance: number;
     private savedPrestige: number;
     private savedTotalExperience: number;
     private savedEquippedCompanions: string[];
@@ -73,6 +77,7 @@ export default class Player {
         this.companionInventory = companions.map(companion => ({ ...companion }));
         this.savedSkills = [...this.data.skills];
         this.savedSkillPoints = this.data.skillPoints;
+        this.savedBalance = this.data.balance;
         this.savedPrestige = this.data.prestige;
         this.savedTotalExperience = savedTotalExperience;
         this.savedEquippedCompanions = this.equippedCompanions;
@@ -145,21 +150,70 @@ export default class Player {
         return { experienceAwarded, progression: this.addExperience(experienceAwarded) };
     }
 
+    private messageReward(base: number, reward: "experience" | "balance"): number {
+        const experience = reward === "experience";
+        return applyCompanionBonuses(
+            this.applySkills(base + (experience ? this.prestigeExperienceFlat : this.prestigeBalanceFlat),
+                experience ? SkillEffect.Experience : SkillEffect.Balance)
+                * (experience ? this.experienceMultiplier : this.balanceMultiplier),
+            reward, this.activeCompanions,
+        );
+    }
+
+    public get profileBonuses() {
+        const experienceFlat = this.messageReward(0, "experience");
+        const balanceFlat = this.messageReward(0, "balance");
+        const rewardRange = (reward: "experience" | "balance", range: { min: number; max: number }) => {
+            const flat = reward === "experience" ? experienceFlat : balanceFlat;
+            const multiplier = this.messageReward(1, reward) - flat;
+            const amounts = Array.from({ length: range.max - range.min + 1 }, (_, index) => {
+                const base = range.min + index;
+                const total = Math.floor(this.messageReward(base, reward));
+                return { total, bonus: total - base, additiveBonus: total - Math.floor(base * multiplier) };
+            });
+            return {
+                reward: { min: Math.min(...amounts.map(amount => amount.total)), max: Math.max(...amounts.map(amount => amount.total)) },
+                bonus: { min: Math.min(...amounts.map(amount => amount.bonus)), max: Math.max(...amounts.map(amount => amount.bonus)) },
+                additiveBonus: { min: Math.min(...amounts.map(amount => amount.additiveBonus)), max: Math.max(...amounts.map(amount => amount.additiveBonus)) },
+            };
+        };
+        const prestige: { name: string; description: string }[] = [];
+        const addMultiplier = (name: string, value: number, description: string) => {
+            if (value !== 1) prestige.push({ name, description: `${value.toLocaleString("en-US", { maximumFractionDigits: 6 })}× ${description}` });
+        };
+        if (this.prestigeExperienceFlat) prestige.push({ name: "Prestige XP", description: `Adds ${this.prestigeExperienceFlat} XP before reward multipliers.` });
+        if (this.prestigeBalanceFlat) prestige.push({ name: "Prestige income", description: `Adds $${this.prestigeBalanceFlat} before reward multipliers.` });
+        addMultiplier("Prestige XP multiplier", this.experienceMultiplier, "experience rewards.");
+        addMultiplier("Prestige income multiplier", this.balanceMultiplier, "money rewards.");
+        addMultiplier("Companion appearance", this.data.prestigeCompanionSpawnMultiplier, "companion appearance chance.");
+        addMultiplier("Companion rarity", this.data.prestigeCompanionRarityMultiplier, "rare companion encounter weighting.");
+        addMultiplier("Casino payouts", this.data.prestigeCasinoPayoutMultiplier, "casino payouts.");
+        addMultiplier("Lootbox drop", this.data.prestigeLootboxDropMultiplier, "lootbox drop chance.");
+        addMultiplier("Lootbox rarity", this.data.prestigeLootboxRarityMultiplier, "higher-rarity lootbox weighting per tier.");
+        addMultiplier("Lootbox reward", this.data.prestigeLootboxRewardMultiplier, "higher-rarity reward weighting per tier.");
+        addMultiplier("Lootbox find", this.data.prestigeLootboxFindMultiplier, "item and companion reward weights relative to boosts.");
+        if (this.hasPrestigeCompanionSlot) prestige.push({ name: "Companion slot", description: "Adds one companion slot." });
+        return {
+            messageRewards: {
+                experience: { flat: experienceFlat, multiplier: this.messageReward(1, "experience") - experienceFlat, ...rewardRange("experience", messageExperienceRange) },
+                balance: { flat: balanceFlat, multiplier: this.messageReward(1, "balance") - balanceFlat, ...rewardRange("balance", messageBalanceRange) },
+            },
+            prestige,
+            skills: this.skills.map(getSkill).filter((skill): skill is Skill => skill !== undefined)
+                .map(skill => ({ name: skill.name, description: skill.description })),
+            companions: this.activeCompanions.map(companion => ({ name: companion.name, description: companion.description })),
+        };
+    }
+
     public assignRandomExperienceAndBalance(
         random: (key: string) => number = () => Math.random(),
     ): MessageRewardResult {
         this.requireSkillSnapshot = true;
-        const baseExperience = Math.floor(random("baseExperience") * 26 + 15);
-        const baseBalance = Math.floor(random("baseBalance") * 101 + 50);
-        const regularExperience = applyCompanionBonuses(
-            this.applySkills(baseExperience + this.data.prestigeExperienceFlat, SkillEffect.Experience) * this.experienceMultiplier,
-            "experience", this.activeCompanions,
-        );
+        const baseExperience = Math.floor(random("baseExperience") * (messageExperienceRange.max - messageExperienceRange.min + 1) + messageExperienceRange.min);
+        const baseBalance = Math.floor(random("baseBalance") * (messageBalanceRange.max - messageBalanceRange.min + 1) + messageBalanceRange.min);
+        const regularExperience = this.messageReward(baseExperience, "experience");
         let experience = regularExperience;
-        let balance = applyCompanionBonuses(
-            this.applySkills(baseBalance + this.data.prestigeBalanceFlat, SkillEffect.Balance) * this.balanceMultiplier,
-            "balance", this.activeCompanions,
-        );
+        let balance = this.messageReward(baseBalance, "balance");
         let bonusSkillPoints = 0;
         const specialRewards: SpecialReward[] = [];
 
@@ -619,6 +673,7 @@ export default class Player {
                 newPlayer.companionInventory = existingPlayer.companions.map(companion => ({ ...companion }));
                 newPlayer.savedSkills = [...newPlayer.data.skills];
                 newPlayer.savedSkillPoints = newPlayer.data.skillPoints;
+                newPlayer.savedBalance = newPlayer.data.balance;
                 newPlayer.savedPrestige = newPlayer.data.prestige;
                 newPlayer.savedTotalExperience = existingPlayer.data.totalExperience
                     ?? existingPlayer.data.experience
@@ -640,6 +695,7 @@ export default class Player {
             const skillsChanged = this.resettingSkills || JSON.stringify(this.data.skills) !== JSON.stringify(this.savedSkills);
             const pointsChanged = this.resettingSkills || this.data.skillPoints !== this.savedSkillPoints;
             const totalExperienceChanged = this.data.totalExperience !== this.savedTotalExperience;
+            const balanceChanged = this.data.balance !== this.savedBalance;
             const result = await dbClient.query<{ data: StoredPlayerData }>(
                 `INSERT INTO players (id, data)
                  VALUES ($1, $2)
@@ -659,11 +715,14 @@ export default class Player {
                               COALESCE((players.data->>'totalExperience')::numeric,
                                        (players.data->>'experience')::numeric, 0)) END
                      || jsonb_build_object('name', COALESCE(players.data->'name', EXCLUDED.data->'name'))
+                     || CASE WHEN $13::boolean THEN '{}'::jsonb
+                          ELSE jsonb_build_object('balance', COALESCE(players.data->'balance', '0'::jsonb)) END
                  WHERE (NOT ($3::boolean OR $7::boolean) OR COALESCE(players.data->'skills', '[]'::jsonb) = $5::jsonb)
                    AND (NOT $4::boolean OR COALESCE(players.data->'skillPoints', '0'::jsonb) = $6::jsonb)
                    AND COALESCE((players.data->>'prestige')::numeric, 0) = $8::numeric
                    AND (NOT $7::boolean OR ${equipmentSQL} = $9::jsonb)
                    AND (NOT $11::boolean OR COALESCE((players.data->>'totalExperience')::numeric, (players.data->>'experience')::numeric, 0) = $12::numeric)
+                   AND (NOT $13::boolean OR COALESCE((players.data->>'balance')::numeric, 0) = $14::numeric)
                  RETURNING data`,
                 [
                     this.id,
@@ -678,9 +737,16 @@ export default class Player {
                     this.resettingSkills,
                     totalExperienceChanged,
                     this.savedTotalExperience,
+                    balanceChanged,
+                    this.savedBalance,
                 ],
             );
             if (!result.rows[0]) {
+                try {
+                    await Player.invalidate(this.id);
+                } catch (error) {
+                    console.error("Failed to invalidate stale player cache:", error);
+                }
                 throw new PlayerConflictError();
             }
             const { name, ...data } = result.rows[0].data;
@@ -688,6 +754,7 @@ export default class Player {
             this.data = { ...defaultPlayerData, ...data };
             this.savedSkills = [...this.data.skills];
             this.savedSkillPoints = this.data.skillPoints;
+            this.savedBalance = this.data.balance;
             this.savedPrestige = this.data.prestige;
             this.savedTotalExperience = this.data.totalExperience;
             this.savedEquippedCompanions = this.equippedCompanions;

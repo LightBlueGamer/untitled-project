@@ -9,6 +9,7 @@ import { getLootboxBonuses, savePlayerWithLootbox } from "../../lootboxStorage.j
 import { rollLootboxRarity } from "../../resources/lootboxes.js";
 import { type Rarity } from "../../resources/rarities.js";
 import { debugLog } from "../../debugSettings.js";
+import { handleSkillButton } from "../commands/skills.js";
 
 export default {
     name: "buttonInteraction",
@@ -16,6 +17,18 @@ export default {
     async execute(interaction: ButtonInteraction) {
         const { user, client } = interaction;
         if (user.bot) return;
+
+        if (interaction.customId.startsWith("skills:")) {
+            try {
+                await handleSkillButton(interaction);
+            } catch (error) {
+                console.error("Failed to handle skill interaction:", error);
+                const content = "Could not complete the skill action. The unlock may have succeeded; use /skills to check your current progress.";
+                if (interaction.deferred) await interaction.editReply({ content, embeds: [], components: [] });
+                else if (!interaction.replied) await interaction.reply({ content, flags: [MessageFlags.Ephemeral] });
+            }
+            return;
+        }
 
         if (interaction.customId.startsWith("companion_catch:")) {
             try {

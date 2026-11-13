@@ -17,6 +17,7 @@ describe("command registration", () => {
         const publicCommands = commands.filter(command => !isGuildOnlyCommand(command.data));
         expect(commands.filter(command => isGuildOnlyCommand(command.data)).map(command => command.data.name)).toEqual(["debug"]);
         expect(publicCommands.map(command => command.data.name)).toContain("scavenge");
+        expect(publicCommands.map(command => command.data.name)).toContain("skills");
         for (const command of publicCommands) {
             const registered = publicCommandData(command.data);
             expect(registered.integration_types).toEqual([
