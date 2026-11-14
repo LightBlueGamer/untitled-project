@@ -19,9 +19,8 @@
   let lastSignature = '';
   let clockOffset = 0;
   let raiseTo = 0;
-  let lastHand = 0;
-  let lastCommunity = 0;
   let busy = false;
+  const dealer = window.pokerCards.dealer(() => sound.card(), isPanelVisible);
 
   const lobbyApi = (path, method = 'GET', body) =>
     api(`/lobbies${path}`, {
@@ -154,21 +153,21 @@
       bet,
       maxPlayers: solo ? Number(botsInput.value) + 1 : Number(maxInput.value),
       bots: solo ? Number(botsInput.value) : 0
-    }));
+    }), true);
   }
 
   async function join(id) {
     await enter(() => lobbyApi(`/${id}/join`, 'POST'));
   }
 
-  async function enter(request) {
+  async function enter(request, fresh = false) {
     if (busy) return;
     busy = true;
     try {
       const data = await request();
       setBalance(data.balance);
       setMessage('');
-      show(data.lobby);
+      show(data.lobby, fresh);
     } catch (error) {
       setMessage(error.message, 'loss');
       loadList();
@@ -191,6 +190,7 @@
   }
 
   function exitRoom() {
+    dealer.reset();
     current = null;
     lastSignature = '';
     room.classList.add('hidden');
@@ -228,19 +228,13 @@
   // Rendering
 
   function cardElement(card) {
-    const element = el('div', `bj-card${card.suit === '♥' || card.suit === '♦' ? ' red' : ''}`);
-    element.innerHTML = '<span class="corner top"></span><span class="pip"></span><span class="corner bottom"></span>';
-    element.querySelectorAll('.corner').forEach(corner => {
-      corner.textContent = `${card.rank}\n${card.suit}`;
-    });
-    element.querySelector('.pip').textContent = card.suit;
-    return element;
+    return window.pokerCards.face(card);
   }
 
-  const backCard = () => el('div', 'bj-card back');
-  const emptyCard = () => el('div', 'bj-card empty');
+  const backCard = () => window.pokerCards.back();
+  const emptyCard = () => window.pokerCards.empty();
 
-  function show(lobby) {
+  function show(lobby, fresh = false) {
     const previous = current;
     current = lobby;
     if (lobby.casinoPayoutMultiplier !== undefined) {
@@ -255,6 +249,10 @@
 
     if (signature === lastSignature) return;
     lastSignature = signature;
+    if (lobby.game === 'poker') {
+      dealer.update(lobby.poker.handNo, lobby.poker.community.length,
+        lobby.poker.seats.filter(seat => seat.inHand).map(seat => seat.id), fresh);
+    }
     render(lobby, previous);
   }
 
@@ -375,15 +373,16 @@
 
     const community = el('div', 'bj-cards poker-community');
     for (let i = 0; i < 5; i++) {
-      community.append(state.community[i] ? cardElement(state.community[i]) : emptyCard());
+      community.append(state.community[i] ? dealer.decorate(cardElement(state.community[i]), `board:${i}`) : emptyCard());
     }
     table.append(community);
-    nodes.push(table);
-
-    if (state.community.length > lastCommunity || (state.handNo !== lastHand && state.active)) {
-      sound.card();
+    if (state.upcomingCommunity) {
+      const upcoming = state.upcomingCommunity.map(card => `${card.rank}${card.suit}`).join(' ');
+      table.append(el('div', 'bj-next-card', `Developer view · Opponent cards revealed · Upcoming community: ${upcoming || 'none'}`));
+      const winners = state.predictedWinners.map(id => state.seats.find(seat => seat.id === id)?.name ?? id);
+      table.append(el('div', 'muted-note', `Actual board showdown (assuming no folds): ${winners.join(' / ')}${winners.length > 1 ? ' (tie)' : ''}. Equity below simulates random remaining boards and splits ties; side pots and future bets are excluded.`));
     }
-    lastCommunity = state.community.length;
+    nodes.push(table);
 
     const seats = el('div', 'lobby-seats');
     for (const seat of state.seats) {
@@ -392,8 +391,8 @@
       if (seat.folded && seat.inHand) classes.push('folded');
       if (state.result?.winners.some(winner => winner.id === seat.id) && !state.active) classes.push('winner');
       const node = el('div', classes.join(' '));
-      const dealer = state.dealerId === seat.id ? ' Ⓓ' : '';
-      node.append(el('strong', '', `${seat.id === lobby.you ? `${seat.name} (you)` : seat.name}${dealer}`));
+      const dealerMarker = state.dealerId === seat.id ? ' Ⓓ' : '';
+      node.append(el('strong', '', `${seat.id === lobby.you ? `${seat.name} (you)` : seat.name}${dealerMarker}`));
       node.append(el('span', '', `Chips ${format(seat.chips)}`));
       const tags = [];
       if (seat.bet > 0) tags.push(`Bet ${format(seat.bet)}`);
@@ -404,12 +403,14 @@
       if (seat.inHand) {
         const cards = el('div', 'bj-cards poker-hole');
         if (seat.hole.length) {
-          cards.append(...seat.hole.map(cardElement));
+          cards.append(...seat.hole.map((card, i) => dealer.decorate(cardElement(card), `hole:${seat.id}:${i}`)));
         } else {
-          cards.append(backCard(), backCard());
+          cards.append(dealer.decorate(backCard(), `hole:${seat.id}:0`), dealer.decorate(backCard(), `hole:${seat.id}:1`));
         }
         node.append(cards);
       }
+      if (seat.currentHand) node.append(el('span', 'muted-note', `Current hand: ${seat.currentHand}`));
+      if (seat.equity !== undefined) node.append(el('span', 'muted-note', `Estimated equity: ${seat.equity.toFixed(1)}%`));
       const shownHand = state.result?.hands?.[seat.id];
       if (shownHand && !state.active) node.append(el('span', 'muted-note', shownHand));
       seats.append(node);
@@ -429,13 +430,12 @@
         if (me?.inHand) (won ? sound.win : sound.lose)();
       }
     }
-    lastHand = state.handNo;
     nodes.push(status);
 
     if (me?.inHand && me.hole.length && state.active) {
       const mine = el('div', 'poker-mine');
       mine.append(el('span', 'eyebrow', 'Your cards'));
-      mine.append(...me.hole.map(cardElement));
+      mine.append(...me.hole.map((card, i) => dealer.decorate(cardElement(card), `hole:${me.id}:${i}`)));
       nodes.push(mine);
     }
 

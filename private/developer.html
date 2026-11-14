@@ -20,11 +20,30 @@
           <button id="refreshDebug" class="btn secondary-btn" type="button">Refresh</button>
         </div>
         <p id="debugStatus" class="status" role="status" aria-live="polite">Loading diagnostics…</p>
+        <section class="panel developer-settings" aria-label="Casino view">
+          <h2>Casino view</h2>
+          <p>Reveal the dealer's hidden card, next card and action estimates in blackjack, plus opponents' cards, hands, estimated equity and the actual-board showdown prediction in solo and multiplayer poker. Other players cannot see your preview. Changes apply on the next action or refresh.</p>
+          <button id="casinoViewToggle" class="btn secondary-btn" type="button" disabled>Loading…</button>
+          <p id="casinoViewStatus" class="status" role="status" aria-live="polite"></p>
+        </section>
         <section class="panel developer-settings" aria-label="Bot Shop controls">
           <h2>Bot Shop</h2>
           <p>Generate a new global selection and reset the 24-hour restock timer.</p>
           <button id="refreshBotShop" class="btn secondary-btn" type="button">Restock Bot Shop</button>
           <p id="botShopDeveloperStatus" class="status" role="status" aria-live="polite"></p>
+        </section>
+        <section class="panel developer-settings" aria-label="House Learns diagnostics">
+          <h2>The House Learns</h2>
+          <p>Inspect a player's recorded actions and how Prestigious uses them alongside shared observations. This does not reveal hidden cards.</p>
+          <form id="houseLearnSearch" class="developer-house-search">
+            <label for="houseLearnQuery">Player name or ID</label>
+            <input id="houseLearnQuery" class="search" type="search" maxlength="100" placeholder="Search players">
+            <button class="btn secondary-btn" type="submit">Search</button>
+          </form>
+          <p id="houseLearnStatus" class="status" role="status" aria-live="polite"></p>
+          <div id="houseLearnPlayers" class="developer-house-players"></div>
+          <button id="houseLearnMore" class="nav-link hidden" type="button">More players</button>
+          <div id="houseLearnDetails" aria-live="polite"></div>
         </section>
         <section class="panel developer-settings" aria-label="Global debug settings">
           <h2>Debug topics</h2>
@@ -41,5 +60,6 @@
     </div>
     <script src="/scripts/nav.js"></script>
     <script src="/scripts/developer.js"></script>
+    <script src="/scripts/developerHouseLearns.js"></script>
   </body>
 </html>

@@ -647,6 +647,7 @@ function selectGame(name, selected) {
   if (name === 'leaderboard') {
     loadLeaderboard();
   }
+  if (name === 'house-learns') window.refreshHouseLearns();
 }
 
 let leaderboardSort = 'net';
@@ -782,6 +783,7 @@ autoButton.addEventListener('click', toggleAuto);
   const dealButton = $('#bjDeal');
   const doubleButton = $('#bjDouble');
   const nextCard = $('#bjNextCard');
+  const advice = $('#bjAdvice');
   const buttons = document.querySelectorAll('#game-blackjack button');
 
   const OUTCOMES = {
@@ -853,6 +855,16 @@ autoButton.addEventListener('click', toggleAuto);
     nextCard.textContent = game.active && game.nextCard
       ? `Developer preview · Next card: ${game.nextCard.rank}${game.nextCard.suit} (Hit/Double; or dealer's first draw on Stand)`
       : '';
+    advice.classList.toggle('hidden', !game.active || !game.advice);
+    if (game.active && game.advice) {
+      const { stand, hit, double, recommended } = game.advice;
+      const describe = (label, result) => result
+        ? `${label}: win ${result.win.toFixed(1)}%, push ${result.push.toFixed(1)}%, loss ${result.loss.toFixed(1)}%, expected net ${result.expectedNet < 0 ? '−' : '+'}${format(Math.abs(result.expectedNet).toFixed(2))}`
+        : `${label}: unavailable`;
+      advice.textContent = `Best expected net: ${recommended.toUpperCase()} · ${describe('Stand', stand)} · ${describe('Hit once, then stand', hit)} · ${describe('Double', double)}. Uses the shown next card; later draws are random. Hit assumes you stand afterward. Estimates are not guarantees.`;
+    } else {
+      advice.textContent = '';
+    }
 
     betControls.classList.toggle('hidden', game.active);
     actions.classList.toggle('hidden', !game.active);

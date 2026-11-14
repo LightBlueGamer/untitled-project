@@ -4,6 +4,8 @@ import { getPool } from "../database.js";
 import Player from "../classes/Player.js";
 import { adjustBalance, applyHousePayoutBonus, recordBets } from "./casino.js";
 import { profileNameEvents } from "../profileNameEvents.js";
+import { isCasinoViewEnabled } from "../debugSettings.js";
+import { bestHand, compareScores, currentHandName, estimatePokerEquity, HAND_NAMES, rankValue, showdownWinners } from "../pokerHands.js";
 
 // Multiplayer lobbies live in memory, so they are lost if the server restarts.
 
@@ -14,17 +16,6 @@ type Card = { rank: string; suit: string };
 const FACES: Face[] = ["circle", "star", "left", "right"];
 const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 const SUITS = ["♠", "♥", "♦", "♣"];
-const HAND_NAMES = [
-    "High card",
-    "Pair",
-    "Two pair",
-    "Three of a kind",
-    "Straight",
-    "Flush",
-    "Full house",
-    "Four of a kind",
-    "Straight flush",
-];
 
 const BILLS_PER_PLAYER = 3;
 const BILLS_MIN_PLAYERS = 2;
@@ -152,11 +143,12 @@ const BOT_NAMES = [
     "Indigo", "Jinx", "Kismet", "Lucky", "Maverick", "Nova", "Onyx", "Piper",
 ];
 
-function addBot(lobby: Lobby): void {
+function addBot(lobby: Lobby, playerName?: string): void {
     const used = new Set(lobby.members.map((member) => member.name));
     const free = BOT_NAMES.filter((name) => !used.has(`${name} 🤖`));
     const pool = free.length > 0 ? free : BOT_NAMES;
-    const bot = newMember(`bot:${randomBytes(4).toString("hex")}`, `${pool[randomInt(pool.length)]} 🤖`);
+    const name = playerName ?? pool[randomInt(pool.length)];
+    const bot = newMember(`bot:${randomBytes(4).toString("hex")}`, `${name} 🤖`);
     bot.chips = lobby.bet;
     bot.invested = lobby.bet;
     lobby.members.push(bot);
@@ -175,67 +167,6 @@ function credit(userId: string, amount: number): void {
 const billsStake = (lobby: Lobby) => lobby.bet * BILLS_PER_PLAYER;
 const entryCost = (lobby: Lobby) =>
     lobby.game === "bills" ? billsStake(lobby) : lobby.bet;
-
-// Poker hand evaluation
-
-const rankValue = (rank: string) =>
-    rank === "A" ? 14 : rank === "K" ? 13 : rank === "Q" ? 12 : rank === "J" ? 11 : Number(rank);
-
-function eval5(cards: Card[]): number[] {
-    const values = cards.map((card) => rankValue(card.rank)).sort((a, b) => b - a);
-    const flush = cards.every((card) => card.suit === cards[0].suit);
-    const counts = new Map<number, number>();
-    for (const value of values) {
-        counts.set(value, (counts.get(value) ?? 0) + 1);
-    }
-    const groups = [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
-    const ranksByGroup = groups.map((group) => group[0]);
-    const unique = [...new Set(values)];
-    let straight = 0;
-    if (unique.length === 5) {
-        if (unique[0] - unique[4] === 4) {
-            straight = unique[0];
-        } else if (unique[0] === 14 && unique[1] === 5) {
-            straight = 5;
-        }
-    }
-    if (straight && flush) return [8, straight];
-    if (groups[0][1] === 4) return [7, ...ranksByGroup];
-    if (groups[0][1] === 3 && groups[1][1] === 2) return [6, ...ranksByGroup];
-    if (flush) return [5, ...values];
-    if (straight) return [4, straight];
-    if (groups[0][1] === 3) return [3, ...ranksByGroup];
-    if (groups[0][1] === 2 && groups[1][1] === 2) return [2, ...ranksByGroup];
-    if (groups[0][1] === 2) return [1, ...ranksByGroup];
-    return [0, ...values];
-}
-
-function compareScores(a: number[], b: number[]): number {
-    for (let i = 0; i < Math.max(a.length, b.length); i++) {
-        const difference = (a[i] ?? 0) - (b[i] ?? 0);
-        if (difference !== 0) return difference;
-    }
-    return 0;
-}
-
-function bestHand(cards: Card[]): number[] {
-    let best: number[] = [-1];
-    const pick: Card[] = [];
-    const walk = (start: number) => {
-        if (pick.length === 5) {
-            const score = eval5(pick);
-            if (compareScores(score, best) > 0) best = score;
-            return;
-        }
-        for (let i = start; i < cards.length; i++) {
-            pick.push(cards[i]);
-            walk(i + 1);
-            pick.pop();
-        }
-    };
-    walk(0);
-    return best;
-}
 
 function newDeck(): Card[] {
     const deck = RANKS.flatMap((rank) => SUITS.map((suit) => ({ rank, suit })));
@@ -909,7 +840,9 @@ function summary(lobby: Lobby) {
     };
 }
 
-function view(lobby: Lobby, userId: string) {
+const equityCache = new WeakMap<PokerState, { key: string; equity: Record<string, number> }>();
+
+function view(lobby: Lobby, userId: string, casinoView: boolean) {
     const base = {
         ...summary(lobby),
         you: userId,
@@ -947,6 +880,17 @@ function view(lobby: Lobby, userId: string) {
     const me = lobby.members.find((member) => member.id === userId);
     const reveal = Boolean(state.result?.showdown) && !state.active;
     const turnMember = state.active ? lobby.members[state.turn] : undefined;
+    const upcoming = state.deck.slice(-(5 - state.community.length)).reverse().slice(0, 5 - state.community.length);
+    let equity: Record<string, number> | undefined;
+    if (casinoView && state.active) {
+        const key = JSON.stringify([state.community, lobby.members.map(member => [member.id, member.hole, member.folded])]);
+        let cached = equityCache.get(state);
+        if (!cached || cached.key !== key) {
+            cached = { key, equity: estimatePokerEquity(lobby.members, state.community) };
+            equityCache.set(state, cached);
+        }
+        equity = cached.equity;
+    }
     return {
         ...base,
         poker: {
@@ -967,6 +911,10 @@ function view(lobby: Lobby, userId: string) {
             bb: state.bb,
             result: state.result,
             myHole: me?.hole ?? [],
+            ...(casinoView && state.active ? {
+                upcomingCommunity: upcoming,
+                predictedWinners: showdownWinners(lobby.members, [...state.community, ...upcoming]),
+            } : {}),
             seats: lobby.members.map((member) => ({
                 id: member.id,
                 name: member.name,
@@ -978,7 +926,11 @@ function view(lobby: Lobby, userId: string) {
                 bot: isBot(member.id),
                 inHand: state.active || reveal ? member.hole.length > 0 : false,
                 hole:
-                    member.id === userId || (reveal && !member.folded) ? member.hole : [],
+                    member.id === userId || (casinoView && state.active) || (reveal && !member.folded) ? member.hole : [],
+                ...(state.active && member.hole.length && (member.id === userId || casinoView) ? {
+                    currentHand: currentHandName([...member.hole, ...state.community]),
+                } : {}),
+                ...(equity && Object.hasOwn(equity, member.id) ? { equity: equity[member.id] } : {}),
             })),
         },
     };
@@ -987,6 +939,15 @@ function view(lobby: Lobby, userId: string) {
 // Routes
 
 const lobbiesRouter = Router();
+
+lobbiesRouter.use(async (_request, response, next) => {
+    try {
+        response.locals.casinoView = response.locals.isDeveloper && await isCasinoViewEnabled();
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
 
 // Save right after any state-changing request has been answered.
 lobbiesRouter.use((request, response, next) => {
@@ -1027,7 +988,7 @@ lobbiesRouter.get("/mine", (_request, response) => {
         return;
     }
     member.lastSeen = Date.now();
-    response.json({ lobby: view(lobby, userId) });
+    response.json({ lobby: view(lobby, userId, response.locals.casinoView) });
 });
 
 lobbiesRouter.post("/", async (request, response) => {
@@ -1092,6 +1053,22 @@ lobbiesRouter.post("/", async (request, response) => {
             response.status(400).json({ error: "Potential payout is too large" });
             return;
         }
+        let botNames: string[] = [];
+        if (botCount > 0) {
+            const result = await getPool().query<{ name: string }>(
+                `SELECT name FROM (
+                     SELECT DISTINCT ON (lower(btrim(data->>'name'))) btrim(data->>'name') AS name
+                     FROM players
+                     WHERE id <> $1 AND btrim(COALESCE(data->>'name', '')) <> ''
+                       AND lower(btrim(data->>'name')) <> lower(btrim($3::text))
+                     ORDER BY lower(btrim(data->>'name')), btrim(data->>'name')
+                 ) names
+                 ORDER BY random()
+                 LIMIT $2`,
+                [userId, botCount, name],
+            );
+            botNames = result.rows.map(row => row.name);
+        }
         const balance = await adjustBalance(userId, -cost, cost);
         if (balance === null) {
             response.status(400).json({ error: "Insufficient balance" });
@@ -1104,16 +1081,16 @@ lobbiesRouter.post("/", async (request, response) => {
             member.invested = cost;
         }
         const lobby = newLobby(game, member, bet, maxPlayers);
-        for (let i = 0; i < botCount; i++) addBot(lobby);
+        for (let i = 0; i < botCount; i++) addBot(lobby, botNames[i]);
+        lobbies.set(lobby.id, lobby);
+        userLobby.set(userId, lobby.id);
         if (botCount > 0) {
             lobby.solo = true;
             lobby.casinoPayoutMultiplier = casinoPayoutMultiplier;
             startHand(lobby);
         }
-        lobbies.set(lobby.id, lobby);
-        userLobby.set(userId, lobby.id);
         await persist();
-        response.json({ lobby: view(lobby, userId), balance });
+        response.json({ lobby: view(lobby, userId, response.locals.casinoView), balance });
     } finally {
         busyUsers.delete(userId);
     }
@@ -1162,7 +1139,7 @@ lobbiesRouter.post("/:id/join", async (request, response) => {
         lobby.members.push(member);
         userLobby.set(userId, lobby.id);
         await persist();
-        response.json({ lobby: view(lobby, userId), balance });
+        response.json({ lobby: view(lobby, userId, response.locals.casinoView), balance });
     } finally {
         busyUsers.delete(userId);
     }
@@ -1185,7 +1162,7 @@ lobbiesRouter.get("/:id", (request, response) => {
         return;
     }
     found.member.lastSeen = Date.now();
-    response.json({ lobby: view(found.lobby, userId) });
+    response.json({ lobby: view(found.lobby, userId, response.locals.casinoView) });
 });
 
 lobbiesRouter.post("/:id/leave", (request, response) => {
@@ -1225,7 +1202,7 @@ lobbiesRouter.post("/:id/start", (request, response) => {
     } else {
         startHand(lobby);
     }
-    response.json({ lobby: view(lobby, userId) });
+    response.json({ lobby: view(lobby, userId, response.locals.casinoView) });
 });
 
 lobbiesRouter.post("/:id/action", (request, response) => {
@@ -1261,7 +1238,7 @@ lobbiesRouter.post("/:id/action", (request, response) => {
             return;
         }
     }
-    response.json({ lobby: view(lobby, userId) });
+    response.json({ lobby: view(lobby, userId, response.locals.casinoView) });
 });
 
 export default lobbiesRouter;

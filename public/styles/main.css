@@ -166,6 +166,23 @@ body:before {
     gap: 8px;
 }
 
+.developer-house-search {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.developer-house-players {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.developer-house-details {
+    margin-top: 16px;
+}
+
 .developer-setting {
     display: flex;
     align-items: center;
@@ -2059,6 +2076,34 @@ td.loss {
     background: rgba(20, 90, 55, 0.35);
 }
 
+.house-poker-table .poker-community {
+    flex-wrap: nowrap;
+}
+
+.house-poker-seats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 560px) {
+    .house-poker-table .poker-community {
+        gap: 5px;
+        min-height: 76px;
+    }
+
+    .house-poker-table .bj-card {
+        width: min(52px, 16vw);
+        height: 74px;
+    }
+
+    .house-poker-table .bj-card .corner {
+        font-size: 13px;
+    }
+
+    .house-poker-table .bj-card .pip {
+        font-size: 28px;
+    }
+}
+
 .bj-card.empty {
     background: rgba(255, 255, 255, 0.06);
     box-shadow: none;
@@ -2103,6 +2148,21 @@ td.loss {
     animation: bj-deal 0.35s ease-out backwards;
 }
 
+.bj-card.poker-dealt {
+    animation: poker-deal 360ms cubic-bezier(.2, .75, .3, 1) both;
+}
+
+@keyframes poker-deal {
+    from {
+        opacity: 0;
+        transform: translate(45px, -38px) rotate(12deg) scale(.8);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
 @keyframes bj-deal {
     from {
         opacity: 0;
@@ -2140,6 +2200,25 @@ td.loss {
     align-items: center;
     justify-content: center;
     font-size: 42px;
+}
+
+.lobby-seat .bj-card .corner {
+    font-size: 9px;
+    line-height: 1;
+}
+
+.lobby-seat .bj-card .corner.top {
+    top: 4px;
+    left: 3px;
+}
+
+.lobby-seat .bj-card .corner.bottom {
+    right: 3px;
+    bottom: 4px;
+}
+
+.lobby-seat .bj-card .pip {
+    font-size: 22px;
 }
 
 .bj-card.back {

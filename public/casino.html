@@ -57,6 +57,31 @@
             <span class="game-name">Leaderboard</span>
             <span class="game-desc">Top players, house balance and biggest wins.</span>
           </button>
+          <button class="game-card" type="button" role="tab" data-game="house-learns" aria-selected="false">
+            <span class="game-icon">♛</span>
+            <span class="game-name">The House Learns</span>
+            <span class="game-desc">Challenge Prestigious in heads-up poker for the shared prize pool.</span>
+          </button>
+        </div>
+
+        <div id="game-house-learns" class="panel game-panel hidden" role="tabpanel">
+          <h2>The House Learns · Texas Hold'em</h2>
+          <p>Win the tournament to reclaim your wager and a share of the prize pool. Wager 75% of the pool to win it all; smaller wagers win a proportional share, with a 0.1% minimum. Prizes are rounded down to whole dollars and the rest stays in the pool. Losses fund the pool.</p>
+          <p class="muted-note">Equal virtual chips match your wager; blinds start at 10/20 and rise 10% every five hands. You can resume after disconnecting; forfeiting or exceeding five minutes per turn forfeits your wager. Casino boosts and developer previews do not apply.</p>
+          <div class="home-stats">
+            <div class="panel home-stat"><span class="eyebrow">Prize pool</span><strong id="housePool">…</strong></div>
+            <div class="panel home-stat"><span class="eyebrow">Games played</span><strong id="houseGames">…</strong></div>
+            <div class="panel home-stat"><span class="eyebrow">Prestigious wins</span><strong id="houseWins">…</strong></div>
+          </div>
+          <div id="houseStart">
+            <label for="houseWager">Entry wager (100–4,503,599,627,370,495)</label>
+            <input id="houseWager" class="search" type="number" min="100" max="4503599627370495" step="1" value="100">
+            <button id="housePlay" class="btn" type="button">Challenge Prestigious</button>
+          </div>
+          <p id="houseEstimate" class="muted-note" aria-live="polite"></p>
+          <button id="houseRefresh" class="nav-link" type="button">Refresh game and prize pool</button>
+          <div id="houseRoom"></div>
+          <p id="houseStatus" class="status" role="status" aria-live="polite"></p>
         </div>
 
         <div id="game-bills" class="panel game-panel hidden" role="tabpanel">
@@ -212,6 +237,7 @@
               <div id="bjPlayer" class="bj-cards"></div>
             </div>
             <div id="bjNextCard" class="bj-next-card hidden" aria-live="polite"></div>
+            <div id="bjAdvice" class="bj-next-card hidden" aria-live="polite"></div>
             <div id="bjResult" class="plinko-result" aria-live="polite"></div>
           </div>
           <div class="blackjack-controls">
@@ -296,6 +322,8 @@
     </div>
     <script src="/scripts/nav.js"></script>
     <script src="/scripts/casino.js"></script>
+    <script src="/scripts/pokerCards.js"></script>
     <script src="/scripts/lobbies.js"></script>
+    <script src="/scripts/houseLearns.js"></script>
   </body>
 </html>

@@ -7,6 +7,7 @@ import developerRouter from './api/developer.js'
 import { initDatabase, initRedis } from './database.js'
 import { tickAuctions } from './auctionStorage.js'
 import { tickBotShop } from './botShop.js'
+import { recoverHouseLearns, tickHouseLearns } from './houseLearnsStorage.js'
 
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -130,6 +131,7 @@ app.use(express.static(join(projectRoot, 'public')))
 async function startServer(): Promise<void> {
     await initDatabase()
     await initRedis()
+    await recoverHouseLearns()
     await restoreLobbies()
     await tickAuctions()
     await tickBotShop()
@@ -139,6 +141,9 @@ async function startServer(): Promise<void> {
     setInterval(() => {
         void tickBotShop().catch(error => console.error('Bot Shop maintenance failed:', error))
     }, 60_000).unref()
+    setInterval(() => {
+        void tickHouseLearns().catch(error => console.error('House Learns maintenance failed:', error))
+    }, 30_000).unref()
 
     app.listen(port, () => {
         console.log(`Server listening on http://localhost:${port}`)

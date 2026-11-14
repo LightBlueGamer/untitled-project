@@ -6,6 +6,7 @@ import { initializeCompanionStorage } from "./companionStorage.js";
 import { initializeItemStorage } from "./itemStorage.js";
 import { initializeAuctionStorage } from "./auctionStorage.js";
 import { initializeBotShop } from "./botShop.js";
+import { initializeHouseLearns } from "./houseLearnsStorage.js";
 
 const databaseUrl = process.env.POSTGRES_URL;
 const redisUrl = process.env.REDIS_URL;
@@ -83,6 +84,7 @@ export async function initDatabase(): Promise<void> {
     await initializeItemStorage();
     await initializeAuctionStorage();
     await initializeBotShop();
+    await initializeHouseLearns();
 }
 
 export const redisClient: RedisClientType = createClient({

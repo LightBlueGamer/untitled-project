@@ -4,7 +4,9 @@ import { isDeveloper, loadSession } from "../auth.js";
 import { getCache, getPool } from "../database.js";
 import Player from "../classes/Player.js";
 import lobbiesRouter from "./lobbies.js";
-import { debugLog } from "../debugSettings.js";
+import { debugLog, isCasinoViewEnabled } from "../debugSettings.js";
+import { blackjackAdvice, blackjackHandValue } from "../blackjackAdvice.js";
+import houseLearnsRouter from "./houseLearns.js";
 
 const PLINKO_MIN_ROWS = 8;
 const PLINKO_MAX_ROWS = 16;
@@ -96,6 +98,7 @@ const requireSession: RequestHandler = async (request, response, next) => {
 
 casinoRouter.use(requireSession);
 casinoRouter.use("/lobbies", lobbiesRouter);
+casinoRouter.use("/house-learns", houseLearnsRouter);
 
 // Stats must never break a game, so failures are only logged.
 export async function recordBets(
@@ -534,25 +537,7 @@ function takeBlackjackCard(state: BlackjackState): Card {
     return card;
 }
 
-function handValue(cards: Card[]): number {
-    let total = 0;
-    let aces = 0;
-    for (const { rank } of cards) {
-        if (rank === "A") {
-            aces++;
-            total += 11;
-        } else if (["J", "Q", "K"].includes(rank)) {
-            total += 10;
-        } else {
-            total += Number(rank);
-        }
-    }
-    while (total > 21 && aces > 0) {
-        total -= 10;
-        aces--;
-    }
-    return total;
-}
+const handValue = blackjackHandValue;
 
 const isBlackjack = (cards: Card[]) => cards.length === 2 && handValue(cards) === 21;
 
@@ -574,15 +559,21 @@ function blackjackView(state: BlackjackState, balance: number, outcome?: Outcome
         bet: state.bet,
         player: state.player,
         playerTotal: handValue(state.player),
-        dealer: finished ? state.dealer : [state.dealer[0]],
-        dealerTotal: finished ? handValue(state.dealer) : handValue([state.dealer[0]]),
-        dealerHidden: !finished,
+        dealer: finished || developer ? state.dealer : [state.dealer[0]],
+        dealerTotal: finished || developer ? handValue(state.dealer) : handValue([state.dealer[0]]),
+        dealerHidden: !finished && !developer,
         canDouble: !finished && state.player.length === 2,
         outcome,
         payout,
         casinoPayoutMultiplier: state.casinoPayoutMultiplier ?? 1,
         balance,
-        ...(!finished && developer && state.nextCard ? { nextCard: state.nextCard } : {}),
+        ...(!finished && developer && state.nextCard ? {
+            nextCard: state.nextCard,
+            advice: blackjackAdvice({
+                player: state.player, dealer: state.dealer, nextCard: state.nextCard,
+                bet: state.bet, balance, payoutMultiplier: state.casinoPayoutMultiplier ?? 1,
+            }),
+        } : {}),
     };
 }
 
@@ -639,7 +630,7 @@ async function settleBlackjack(userId: string, state: BlackjackState, busted: bo
 // Serialises requests per player so two tabs cannot act on the same hand at once.
 const blackjackBusy = new Set<string>();
 
-casinoRouter.use("/blackjack", (_request, response, next) => {
+casinoRouter.use("/blackjack", async (_request, response, next) => {
     const userId: string = response.locals.userId;
     if (blackjackBusy.has(userId)) {
         response.status(429).json({ error: "Please wait a moment" });
@@ -647,7 +638,12 @@ casinoRouter.use("/blackjack", (_request, response, next) => {
     }
     blackjackBusy.add(userId);
     response.on("close", () => blackjackBusy.delete(userId));
-    next();
+    try {
+        response.locals.casinoView = response.locals.isDeveloper && await isCasinoViewEnabled();
+        next();
+    } catch (error) {
+        next(error);
+    }
 });
 
 casinoRouter.get("/blackjack", async (_request, response) => {
@@ -657,11 +653,11 @@ casinoRouter.get("/blackjack", async (_request, response) => {
         response.json({ active: false, balance: await currentBalance(userId) });
         return;
     }
-    if (response.locals.isDeveloper && !state.nextCard) {
+    if (response.locals.casinoView && !state.nextCard) {
         state.nextCard = drawCard();
         await saveBlackjack(userId, state);
     }
-    response.json(blackjackView(state, await currentBalance(userId), undefined, 0, response.locals.isDeveloper));
+    response.json(blackjackView(state, await currentBalance(userId), undefined, 0, response.locals.casinoView));
 });
 
 casinoRouter.post("/blackjack/start", async (request, response) => {
@@ -707,13 +703,13 @@ casinoRouter.post("/blackjack/start", async (request, response) => {
             response.json(await settleBlackjack(userId, state, false, response.locals.username));
             return;
         }
-        if (response.locals.isDeveloper) state.nextCard = drawCard();
+        if (response.locals.casinoView) state.nextCard = drawCard();
         await saveBlackjack(userId, state);
     } catch (error) {
         await adjustBalance(userId, bet, 0);
         throw error;
     }
-    response.json(blackjackView(state, balance, undefined, 0, response.locals.isDeveloper));
+    response.json(blackjackView(state, balance, undefined, 0, response.locals.casinoView));
 });
 
 casinoRouter.post("/blackjack/action", async (request, response) => {
@@ -761,9 +757,9 @@ casinoRouter.post("/blackjack/action", async (request, response) => {
             response.json(await settleBlackjack(userId, state, false, response.locals.username));
             return;
         }
-        if (response.locals.isDeveloper) state.nextCard = drawCard();
+        if (response.locals.casinoView) state.nextCard = drawCard();
         await saveBlackjack(userId, state);
-        response.json(blackjackView(state, await currentBalance(userId), undefined, 0, response.locals.isDeveloper));
+        response.json(blackjackView(state, await currentBalance(userId), undefined, 0, response.locals.casinoView));
         return;
     }
 

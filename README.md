@@ -3,6 +3,38 @@
 Updates are listed newest first. Each entry summarizes the features and changes
 introduced in that release.
 
+## The House Learns
+
+- Challenge Prestigious in heads-up Texas Hold'em on the casino page. Entry is
+  $100–$4,503,599,627,370,495; both players begin with that many virtual chips. Blinds
+  start at 10/20 and increase by 10% every five hands. Tied hands split the pot.
+  The tournament ends when one player has all the chips.
+- Each entry is held until settlement. A loss, forfeit or five-minute timeout
+  adds it to the shared pool; a win returns the entry and pays a share of the
+  pool at settlement. The share is the greater of 0.1% of the pool or the
+  entry divided by 75% of the pool, capped at 100%. Pool prizes are rounded
+  down to whole dollars; the remainder stays in the pool. Simultaneous matches
+  settle in order, and the new rule also applies to matches already in progress.
+  The page's estimate uses the last displayed pool, which may change.
+  Disconnecting does not forfeit:
+  return before the deadline to resume. After a server restart, active games
+  get a fresh five minutes, and unrecoverable games have their entry returned.
+  Amounts exceeding the supported balance remain owed and are credited when
+  there is room on a subsequent visit to the game.
+- Prestigious uses persistent player-specific and shared action frequencies to
+  adjust a heuristic poker strategy. This is not a guarantee of continual
+  improvement. Casino payout boosts and developer hidden-card previews do not
+  apply to this mode.
+- The private developer dashboard can search players and inspect their stored
+  raise, call/check, and fold counts, shared counts, and the resulting strategy
+  adjustments. It does not expose hidden cards or individual hand histories.
+- Poker games visually deal hole and community cards in sequence with card
+  sounds. The casino sound toggle applies, and reduced-motion preferences skip
+  the animation. Rejoining an existing hand does not replay its earlier deals.
+- To run the PostgreSQL tests, set `HOUSE_TEST_DATABASE_URL` to an empty,
+  disposable database and run `npx vitest run tests/houseLearnsGame.test.ts
+  tests/houseLearnsIntegration.test.ts`. Never use a production database.
+
 ## 2026-11-13 — Developer diagnostics
 
 - Added `/store` with an Auction House and a placeholder Bot Shop. Players can
@@ -178,9 +210,23 @@ introduced in that release.
 ## 2026-10-12 — Multiplayer casino
 
 - Added multiplayer lobbies, additional casino games, and a casino leaderboard.
-- The configured `DEVELOPER_ID` can privately preview the next card in solo
-  blackjack during an active hand. It is dealt to the player on Hit or Double,
-  or to the dealer first on Stand if the dealer needs to draw.
+- Solo poker bots use other players' display names when available, with a bot
+  marker and generated-name fallback; they do not represent real players.
+- The configured `DEVELOPER_ID` can toggle Casino view on the developer
+  dashboard. Enabled by default, it privately reveals both dealer cards and
+  the next card in solo blackjack during an active hand. The next card is
+  dealt to the player on Hit or Double, or to the dealer first on Stand if
+  the dealer needs to draw. Blackjack action advice compares expected net
+  winnings for Stand, Hit once then Stand, and Double when affordable. It
+  uses that known card and exact probabilities for subsequent random draws;
+  it does not predict further player decisions or guarantee the outcome.
+  It also reveals opponents' hole cards and upcoming
+  community cards in solo and multiplayer poker to the developer only. All
+  poker players see their own current hand. Developer view includes each
+  player's hand, estimated equity from 300 random boards (ties split), and
+  actual-board showdown winners, assuming no further folds. Equity and
+  predictions do not account for side pots or future betting.
+  Changes apply on the next action or refresh.
 
 ## 2026-10-11 — Casino games
 

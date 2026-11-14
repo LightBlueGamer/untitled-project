@@ -6,6 +6,7 @@ class Element {
     className = "";
     textContent = "";
     type = "";
+    disabled = false;
     children: Element[] = [];
     attributes: Record<string, string> = {};
     handlers: Record<string, () => void> = {};
@@ -13,6 +14,7 @@ class Element {
     append(...children: Element[]) { this.children.push(...children); }
     replaceChildren(...children: Element[]) { this.children = children; }
     setAttribute(name: string, value: string) { this.attributes[name] = value; }
+    getAttribute(name: string) { return this.attributes[name] ?? null; }
     addEventListener(name: string, handler: () => void) { this.handlers[name] = handler; }
 }
 
@@ -28,12 +30,14 @@ describe("developer dashboard page", () => {
             timestamp: "2026-01-01T00:00:00.000Z", topic: "chance", username: "<img src=x>",
             userId: "123", guild: "Example server", channel: "general", message: "Chance: 1/1000",
         };
-        const fetch = vi.fn(async (_url: string, options?: { method?: string; body?: string }) => {
+        let casinoView = true;
+        const fetch = vi.fn(async (url: string, options?: { method?: string; body?: string }) => {
             if (options?.method === "PUT") {
-                settings.chance = JSON.parse(options.body!).enabled;
+                if (url === "/api/developer/casino-view") casinoView = JSON.parse(options.body!).enabled;
+                else settings.chance = JSON.parse(options.body!).enabled;
                 return { ok: true, json: async () => ({}) };
             }
-            return { ok: true, json: async () => ({ settings, logs: [entry] }) };
+            return { ok: true, json: async () => ({ settings, logs: [entry], casinoView }) };
         });
         const setInterval = vi.fn();
         const context = createContext({
@@ -54,6 +58,14 @@ describe("developer dashboard page", () => {
         button.handlers.click();
         await vi.waitFor(() => expect(querySelector("#debugSettings").children[0].children[1].attributes["aria-pressed"]).toBe("false"));
         expect(fetch).toHaveBeenCalledWith("/api/developer/settings/chance", expect.objectContaining({
+            method: "PUT", body: '{"enabled":false}',
+        }));
+        const casinoToggle = querySelector("#casinoViewToggle");
+        expect(casinoToggle.attributes["aria-pressed"]).toBe("true");
+        casinoToggle.handlers.click();
+        await vi.waitFor(() => expect(casinoToggle.attributes["aria-pressed"]).toBe("false"));
+        expect(querySelector("#casinoViewStatus").textContent).toBe("Casino view disabled.");
+        expect(fetch).toHaveBeenCalledWith("/api/developer/casino-view", expect.objectContaining({
             method: "PUT", body: '{"enabled":false}',
         }));
     });

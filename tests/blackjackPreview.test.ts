@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
     query: vi.fn(),
     findById: vi.fn(),
     invalidate: vi.fn(),
+    casinoView: true,
+    failBalance: false,
 }));
 vi.mock("../src/auth.js", async importOriginal => {
     const actual = await importOriginal<typeof import("../src/auth.js")>();
@@ -64,9 +66,14 @@ afterAll(async () => {
 beforeEach(() => {
     mocks.session = { id: "developer", username: "Developer" };
     mocks.cache.clear();
+    mocks.casinoView = true;
+    mocks.failBalance = false;
     mocks.random.mockReset().mockReturnValue(0);
-    mocks.query.mockReset().mockImplementation(async (sql: string) =>
-        sql.includes("INSERT INTO casino_bets") ? { rowCount: 1 } : { rowCount: 1, rows: [{ balance: "1000" }] });
+    mocks.query.mockReset().mockImplementation(async (sql: string) => {
+        if (sql.includes("debug_settings")) return { rowCount: mocks.casinoView ? 0 : 1 };
+        if (sql.includes("UPDATE players") && mocks.failBalance) return { rowCount: 0, rows: [] };
+        return sql.includes("INSERT INTO casino_bets") ? { rowCount: 1 } : { rowCount: 1, rows: [{ balance: "1000" }] };
+    });
     mocks.findById.mockReset().mockResolvedValue({ balance: 1000, casinoPayoutMultiplier: 1 });
     mocks.invalidate.mockReset().mockResolvedValue(undefined);
 });
@@ -83,12 +90,20 @@ describe("developer blackjack preview", () => {
         const dealt = await start.json();
         expect(start.headers.get("cache-control")).toBe("no-store");
         expect(dealt.nextCard).toEqual({ rank: "3", suit: "♥" });
-        expect(dealt.dealer).toHaveLength(1);
+        expect(dealt.advice).toEqual(expect.objectContaining({
+            recommended: expect.any(String),
+            stand: expect.objectContaining({ win: expect.any(Number), expectedNet: expect.any(Number) }),
+            hit: expect.any(Object), double: expect.any(Object),
+        }));
+        expect(dealt.dealer).toEqual([{ rank: "4", suit: "♠" }, { rank: "10", suit: "♠" }]);
+        expect(dealt.dealerTotal).toBe(14);
+        expect(dealt.dealerHidden).toBe(false);
         const resumed = await (await fetch(`${baseUrl}/blackjack`)).json();
         expect(resumed.nextCard).toEqual(dealt.nextCard);
         const hit = await (await post("/blackjack/action", { action: "hit" })).json();
         expect(hit.player.at(-1)).toEqual(dealt.nextCard);
         expect(hit.nextCard).toEqual({ rank: "7", suit: "♦" });
+        expect(hit.advice.double).toBeNull();
         expect((await (await fetch(`${baseUrl}/blackjack`)).json()).nextCard).toEqual(hit.nextCard);
     });
 
@@ -98,6 +113,7 @@ describe("developer blackjack preview", () => {
         expect(result.player.at(-1)).toEqual({ rank: "10", suit: "♦" });
         expect(result.active).toBe(false);
         expect(result).not.toHaveProperty("nextCard");
+        expect(result).not.toHaveProperty("advice");
         expect(mocks.cache.has("blackjack:developer")).toBe(false);
     });
 
@@ -117,9 +133,36 @@ describe("developer blackjack preview", () => {
         state("developer");
         const first = await (await fetch(`${baseUrl}/blackjack`)).json();
         expect(first.nextCard).toEqual({ rank: "A", suit: "♠" });
-        mocks.query.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+        mocks.failBalance = true;
         expect((await post("/blackjack/action", { action: "double" })).status).toBe(400);
+        mocks.failBalance = false;
         expect((await (await fetch(`${baseUrl}/blackjack`)).json()).nextCard).toEqual(first.nextCard);
+    });
+
+    test("toggling view off and back on during a hand hides and restores both previews without changing the next card", async () => {
+        state("developer", { nextCard: { rank: "3", suit: "♦" } });
+        const enabled = await (await fetch(`${baseUrl}/blackjack`)).json();
+        expect(enabled.nextCard).toEqual({ rank: "3", suit: "♦" });
+        expect(enabled.dealer).toHaveLength(2);
+        mocks.casinoView = false;
+        const disabled = await (await fetch(`${baseUrl}/blackjack`)).json();
+        expect(disabled).not.toHaveProperty("nextCard");
+        expect(disabled).not.toHaveProperty("advice");
+        expect(disabled.dealer).toHaveLength(1);
+        expect(disabled.dealerHidden).toBe(true);
+        mocks.casinoView = true;
+        const restored = await (await fetch(`${baseUrl}/blackjack`)).json();
+        expect(restored.nextCard).toEqual(enabled.nextCard);
+        expect(restored.dealer).toEqual(enabled.dealer);
+        mocks.casinoView = false;
+        const hit = await (await post("/blackjack/action", { action: "hit" })).json();
+        expect(hit.player.at(-1)).toEqual(enabled.nextCard);
+        expect(hit).not.toHaveProperty("nextCard");
+        expect(hit.dealer).toHaveLength(1);
+        mocks.casinoView = true;
+        const afterHit = await (await fetch(`${baseUrl}/blackjack`)).json();
+        expect(afterHit.nextCard).toBeDefined();
+        expect(afterHit.dealer).toHaveLength(2);
     });
 
     test("never exposes a stored preview to other players, even when requested or configured developer ID is missing", async () => {
@@ -127,10 +170,12 @@ describe("developer blackjack preview", () => {
         state("other", { nextCard: { rank: "3", suit: "♦" } });
         const resumed = await (await fetch(`${baseUrl}/blackjack?developer=true`)).json();
         expect(resumed).not.toHaveProperty("nextCard");
+        expect(resumed).not.toHaveProperty("advice");
         expect(resumed.dealer).toHaveLength(1);
         const hit = await (await post("/blackjack/action", { action: "hit", developer: true })).json();
         expect(hit.player.at(-1)).toEqual({ rank: "3", suit: "♦" });
         expect(hit).not.toHaveProperty("nextCard");
+        expect(hit).not.toHaveProperty("advice");
         delete process.env.DEVELOPER_ID;
         mocks.session = { id: "developer", username: "Developer" };
         state("developer", { nextCard: { rank: "3", suit: "♦" } });

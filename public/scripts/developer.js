@@ -2,6 +2,8 @@ const debugStatus = document.querySelector('#debugStatus');
 const debugSettings = document.querySelector('#debugSettings');
 const debugLogs = document.querySelector('#debugLogs');
 const emptyDebugLogs = document.querySelector('#emptyDebugLogs');
+const casinoViewToggle = document.querySelector('#casinoViewToggle');
+const casinoViewStatus = document.querySelector('#casinoViewStatus');
 const topicLabels = { chance: 'Companion appearance chance', rewards: 'Message rewards', gambling: 'Casino outcomes', lootboxes: 'Lootbox chances and rewards' };
 let debugBusy = false;
 
@@ -12,6 +14,9 @@ async function refreshDiagnostics() {
     const response = await fetch('/api/developer', { cache: 'no-store' });
     if (!response.ok) throw new Error(`Request failed (${response.status})`);
     const data = await response.json();
+    casinoViewToggle.textContent = data.casinoView ? 'Enabled' : 'Disabled';
+    casinoViewToggle.setAttribute('aria-pressed', String(data.casinoView));
+    casinoViewToggle.disabled = false;
     debugSettings.replaceChildren();
     for (const [topic, enabled] of Object.entries(data.settings)) {
       const row = document.createElement('div');
@@ -75,6 +80,27 @@ async function updateDebugSetting(topic, enabled) {
 }
 
 document.querySelector('#refreshDebug').addEventListener('click', refreshDiagnostics);
+casinoViewToggle.addEventListener('click', async () => {
+  if (debugBusy) return;
+  const enabled = casinoViewToggle.getAttribute('aria-pressed') !== 'true';
+  debugBusy = true;
+  casinoViewToggle.disabled = true;
+  try {
+    const response = await fetch('/api/developer/casino-view', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    casinoViewStatus.textContent = `Casino view ${enabled ? 'enabled' : 'disabled'}.`;
+  } catch (error) {
+    console.error('Could not update casino view:', error);
+    casinoViewStatus.textContent = 'Could not update casino view. Please try again.';
+  } finally {
+    debugBusy = false;
+  }
+  await refreshDiagnostics();
+});
 document.querySelector('#refreshBotShop').addEventListener('click', async event => {
   if (!window.confirm('Replace all current Bot Shop stock and prices?')) return;
   const button = event.currentTarget;

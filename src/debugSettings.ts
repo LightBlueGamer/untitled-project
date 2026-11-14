@@ -31,6 +31,25 @@ export async function isDebugEnabled(topic: DebugTopic): Promise<boolean> {
     return (result.rowCount ?? 0) > 0;
 }
 
+export async function isCasinoViewEnabled(): Promise<boolean> {
+    const result = await getPool().query(
+        "SELECT 1 FROM debug_settings WHERE topic = $1 AND scope = $2",
+        ["casino_view_disabled", "global"],
+    );
+    return (result.rowCount ?? 0) === 0;
+}
+
+export async function setCasinoViewEnabled(enabled: boolean): Promise<void> {
+    if (enabled) {
+        await getPool().query("DELETE FROM debug_settings WHERE topic = $1 AND scope = $2", ["casino_view_disabled", "global"]);
+    } else {
+        await getPool().query(
+            "INSERT INTO debug_settings (topic, scope) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            ["casino_view_disabled", "global"],
+        );
+    }
+}
+
 export async function getDebugLogs(): Promise<unknown[]> {
     const entries = await getCache().lRange(logKey, 0, maxLogs - 1);
     return entries.map(entry => JSON.parse(entry) as unknown);
